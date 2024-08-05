@@ -18,6 +18,9 @@ Then build and install scrypt as follows.
 
 [the official scrypt webpage]: https://www.tarsnap.com/scrypt.html
 
+The GUI requires SDL2 to be present in the system. It is usally best obtained
+via the system package manager.
+
 Finally, build padre as follows.
 
     make
