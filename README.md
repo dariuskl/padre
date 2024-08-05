@@ -4,9 +4,12 @@ A simple password derivator with a focus on long-term stability and ease-of-use
 featuring a command-line and graphical user interface.
 
 It works by deriving complex passwords based on a master password for any
-account given by
+account given by domain, username, and an optional sequence number.
 
 ## Building
+
+Padre can be built on any Linux system that can build its dependencies (which
+should be pretty much any).
 
 Download the latest release tarball for scrypt from
 [the official scrypt webpage] and verify its integrity according to the
