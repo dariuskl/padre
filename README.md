@@ -1,27 +1,23 @@
-Padre (CLI)
-===========
+# Padre — Password Derivator
 
-A simple and secure password derivator with an easy-to-use command-line
-interface implemented in C.
+A simple password derivator with a focus on long-term stability and ease-of-use
+featuring a command-line and graphical user interface.
 
-There is a compatible GUI as well:
+It works by deriving complex passwords based on a master password for any
+account given by
 
-        https://github.com/dariuskl/padre
+## Building
 
+Download the latest release tarball for scrypt from
+[the official scrypt webpage] and verify its integrity according to the
+instructions given on that page.
+Then build and install scrypt as follows.
 
-TODO
-----
+    ./configure --enable-libscrypt-kdf
+    make install
 
-  - Support for Unicode
-  - Implement a DBus interface to let other applications (i.e. web browsers)
-    query or add passwords for domains. It might be sensible to split padre into
-    two modules: the backend application and the user interface. The latter
-    would communicate with the backend via DBus just like any other application.
-  - Implement an Epiphany plugin to demonstrate usage.
-  - Internationalization
+[the official scrypt webpage]: https://www.tarsnap.com/scrypt.html
 
-
-LICENSE
--------
+## LICENSE
 
 Licensed under the Apache License, Version 2.0, see LICENSE.
