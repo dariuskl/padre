@@ -34,17 +34,17 @@ static int ask_password(char *passwd, size_t *len) {
   /* turn off echoing */
   tcgetattr(STDIN_FILENO, &term_default);
   term_noecho = term_default;
-  term_noecho.c_lflag &= ~(ECHO);
+  term_noecho.c_lflag &= (unsigned)~ECHO;
   tcsetattr(STDIN_FILENO, TCSANOW, &term_noecho);
 
   fprintf(stdout, "Enter your master password: ");
   fflush(stdout);
   size_t curr_len = 0;
   while ((c = fgetc(stdin)) != EOF && c != '\n' && curr_len < *len) {
-    passwd[curr_len] = c;
+    passwd[curr_len] = (char)c;
     curr_len++;
   }
-  passwd[curr_len] = 0;
+  passwd[curr_len] = '\0';
 
   *len = curr_len;
 
@@ -76,11 +76,11 @@ static error_t parse_opt(const int key, char *arg, struct argp_state *state) {
   case 'l':
     tmp = atoi(arg);
     if (tmp == 0 || tmp < 0) {
-      fprintf(stderr, "The length of the derived password "
-                      "can't be negative or zero.\n");
+      fprintf(stderr, "The length of the derived password can't be"
+                      " negative or zero.\n");
       return EINVAL;
     }
-    options.dkLen = tmp;
+    options.dkLen = (size_t)tmp;
     break;
   case 'n':
     options.passno = arg;

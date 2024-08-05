@@ -1,10 +1,10 @@
 CFLAGS += -Wall -Wextra -pedantic
 CFLAGS += -Werror -pedantic-errors
-#CFLAGS += -Wconversion -Wsign-conversion
+CFLAGS += -Wconversion -Wsign-conversion
 CFLAGS += -Wno-unused-function
 CFLAGS += -std=c23
 CFLAGS += -O3
-CFLAGS += -Ilib
+CFLAGS += -Ilib -isystem lib/nuklear -isystem lib/unity
 LDFLAGS += -lscrypt-kdf
 
 .PHONY: test clean install uninstall

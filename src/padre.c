@@ -47,11 +47,9 @@ derive_password(const size_t master_password_len,
                        buf_len);
 }
 
-static int enumerate_charset(const char *def, char **res, size_t *rlen);
-
-static char *to_pwdchars(char *str, size_t len, char *chars, size_t clen) {
+static char *to_pwdchars(char *str, size_t len, char *chars, const size_t clen) {
   for (; len > 0; len--) {
-    *str = chars[*str % clen];
+    *str = chars[*str % (int)clen];
     ++str;
   }
   *str = '\0';
