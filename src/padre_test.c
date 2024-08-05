@@ -16,6 +16,11 @@
 
 #include "padre.c"
 
+#include <unity/unity.h>
+
+void setUp(void) {}
+void tearDown(void) {}
+
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
@@ -37,139 +42,73 @@
 #define WORD "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
 #define XDIGIT "ABCDEFabcdef0123456789"
 
-static int test_to_pwdchars(char *str, size_t len, char *chars,
-                            char *expected) {
+static void test_to_pwdchars(char *str, const size_t len, char *chars,
+                             const char *expected) {
   to_pwdchars(str, len, chars, strlen(chars));
-  if (strcmp(str, expected) != 0) {
-    fprintf(stderr, "\t\t: Expected `%s`, got `%s`\n", expected, str);
-  } else {
-    puts("\t\t: Success");
-    return 0;
-  }
-
-  return -1;
+  TEST_ASSERT_EQUAL_STRING(expected, str);
 }
 
-static int tests_for_to_pwdchars() {
-  int result;
-  int ret;
-  char str[95];
+static void tests_for_to_pwdchars(void) {
   char *chars;
   size_t clen;
+  const int ret = enumerate_charset("*", &chars, &clen);
+  TEST_ASSERT_EQUAL(0, ret);
 
-  result = 0;
+  char str[95];
 
   for (size_t i = 0; i < sizeof str; ++i) {
     str[i] = (char)i;
   }
 
-  ret = enumerate_charset("*", &chars, &clen);
-  if (ret != 0)
-    return -1;
-
-  result |= test_to_pwdchars(str, sizeof str - 1, chars, chars);
+  test_to_pwdchars(str, sizeof str - 1, chars, chars);
 
   free(chars);
-
-  if (result == 0)
-    errno = 0;
-
-  return result;
 }
 
-static int test_enumerate_charset(char *class, char *expected) {
-  int ret;
+static void test_enumerate_charset(char *class, const char *expected) {
+  printf("\ttesting character class `%s` ...\n", class);
+
   char *res;
   size_t rlen;
-
-  printf("\ttesting character class `%s` ...\n", class);
-  errno = 0;
-  ret = enumerate_charset(class, &res, &rlen);
-  if (ret != 0) {
-    perror("\t\t");
-  } else if (res == NULL || rlen == 0) {
-    fputs("\t\t: Illegal return value(s)\n", stderr);
-  } else if (strcmp(res, expected) != 0) {
-    fprintf(stderr, "\t\t: Expected `%s`, got `%s`\n", expected, res);
-  } else if (rlen != strlen(expected)) {
-    fprintf(stderr, "\t\t: Expected `%zu`, got `%zu`\n", strlen(expected),
-            rlen);
-  } else {
-    puts("\t\t: Success");
-    return 0;
-  }
+  const int ret = enumerate_charset(class, &res, &rlen);
+  TEST_ASSERT_EQUAL(0, ret);
+  TEST_ASSERT_NOT_NULL(res);
+  TEST_ASSERT_NOT_EQUAL(0, rlen);
+  TEST_ASSERT_EQUAL_STRING(expected, res);
+  TEST_ASSERT_EQUAL(strlen(expected), rlen);
 
   free(res);
-
-  return -1;
 }
 
-static int tests_for_enumerate_charset() {
-  int result;
-  int ret;
+static void tests_for_enumerate_charset(void) {
+  errno = 0;
+  int ret = enumerate_charset(NULL, (char **)1, (size_t *)1);
+  TEST_ASSERT_LESS_THAN(0, ret);
+  TEST_ASSERT_EQUAL(EINVAL, errno);
 
-  result = 0;
-
-  ret = enumerate_charset(NULL, (char **)1, (size_t *)1);
-  if (!(ret < 0 && errno == EINVAL)) {
-    perror("\t\t");
-    result |= -1;
-  }
-
+  errno = 0;
   ret = enumerate_charset(NULL, NULL, NULL);
-  if (!(ret < 0 && errno == EINVAL)) {
-    perror("\t\t");
-    result |= -1;
-  }
+  TEST_ASSERT_LESS_THAN(0, ret);
+  TEST_ASSERT_EQUAL(EINVAL, errno);
 
-  /* Test character classes
-   */
-  result |= test_enumerate_charset(":graph:", GRAPH);
-  result |= test_enumerate_charset(":alnum:", ALNUM);
-  result |= test_enumerate_charset(":alpha:", ALPHA);
-  result |= test_enumerate_charset(":digit:", DIGIT);
-  result |= test_enumerate_charset(":lower:", LOWER);
-  result |= test_enumerate_charset(":punct:", PUNCT);
-  result |= test_enumerate_charset(":upper:", UPPER);
-  result |= test_enumerate_charset(":word:", WORD);
-  result |= test_enumerate_charset(":xdigit:", XDIGIT);
-  result |= test_enumerate_charset("*", KLEENE);
+  // test character classes
+  test_enumerate_charset(":graph:", GRAPH);
+  test_enumerate_charset(":alnum:", ALNUM);
+  test_enumerate_charset(":alpha:", ALPHA);
+  test_enumerate_charset(":digit:", DIGIT);
+  test_enumerate_charset(":lower:", LOWER);
+  test_enumerate_charset(":punct:", PUNCT);
+  test_enumerate_charset(":upper:", UPPER);
+  test_enumerate_charset(":word:", WORD);
+  test_enumerate_charset(":xdigit:", XDIGIT);
+  test_enumerate_charset("*", KLEENE);
 
-  result |= test_enumerate_charset(":alnum", ":alnum");
-
-  if (result == 0)
-    errno = 0;
-
-  return result;
+  test_enumerate_charset(":alnum", ":alnum");
 }
 
-int padre_test_execute() {
-  int result;
-  int ret;
-
-  result = 0;
-
-  puts("Testing enumerate_charset() ...");
-  ret = tests_for_enumerate_charset();
-  if (ret != 0 && errno == 0)
-    fputs("\t: Failure\n", stderr);
-  else
-    perror("\t");
-  result |= ret;
-
-  puts("Testing to_pwdchars() ...");
-  ret = tests_for_to_pwdchars();
-  if (ret != 0 && errno == 0)
-    fputs("\t: Failure\n", stderr);
-  else
-    perror("\t");
-  result |= ret;
-
-  return result;
-}
-
-int main(int argc, char *argv[]) {
-  (void)argc;
-  (void)argv;
-  return padre_test_execute();
+int main(void) {
+  UNITY_BEGIN();
+  RUN_TEST(tests_for_enumerate_charset);
+  RUN_TEST(tests_for_to_pwdchars);
+  return UNITY_END();
 }
