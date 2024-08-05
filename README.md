@@ -18,6 +18,10 @@ Then build and install scrypt as follows.
 
 [the official scrypt webpage]: https://www.tarsnap.com/scrypt.html
 
+Finally, build padre as follows.
+
+    make
+
 ## LICENSE
 
 Licensed under the Apache License, Version 2.0, see LICENSE.
