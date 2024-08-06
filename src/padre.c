@@ -58,7 +58,7 @@ static char *to_chars(uint8_t *bytes, size_t len, const char *chars,
   }
   *bytes = '\0';
 
-  return (char*)bytes;
+  return (char *)bytes;
 }
 
 static char *push_char(char *begin, const char *end, const char c) {
@@ -172,43 +172,56 @@ struct account_list {
   size_t capacity;
 };
 
-static struct account_list parse_accounts(char *begin, const char *end) {
+static struct account_list new_account_list(const size_t initial_capacity) {
   struct account_list list = {
       .accounts = nullptr,
-      .capacity = end - begin < AVERAGE_DATABASE_ENTRY_SIZE
-                      ? 1
-                      : (size_t)((end - begin) / AVERAGE_DATABASE_ENTRY_SIZE),
+      .capacity = initial_capacity,
   };
-  list.accounts = calloc(list.capacity, sizeof(struct account));
+  list.accounts = malloc(list.capacity * sizeof(struct account));
+  return list;
+}
+
+static void push_account(struct account_list *list,
+                         const struct account account) {
+  if (list->size == list->capacity) {
+    list->capacity *= 2;
+    list->accounts =
+        realloc(list->accounts, list->capacity * sizeof(struct account));
+  }
+  list->accounts[list->size] = account;
+  ++list->size;
+}
+
+static struct account_list parse_accounts(char *begin, const char *end) {
+  struct account_list list = new_account_list(
+      end - begin < AVERAGE_DATABASE_ENTRY_SIZE
+          ? 1
+          : (size_t)((end - begin) / AVERAGE_DATABASE_ENTRY_SIZE));
 
   const char *cur = begin;
+  struct account account = {nullptr, nullptr, nullptr, nullptr, 0};
   for (char *str = begin; str != end; ++str) {
-    if (list.size == list.capacity) {
-      list.capacity *= 2;
-      list.accounts =
-          realloc(list.accounts, list.capacity * sizeof(struct account));
-    }
-
     switch (*str) {
     case '\n':
       *str = '\0';
-      list.accounts[list.size].characters = cur;
-      ++list.size;
+      account.characters = cur;
+      push_account(&list, account);
+      account = (struct account){nullptr, nullptr, nullptr, nullptr, 0};
       cur = str + 1;
       break;
     case ',':
       *str = '\0';
-      if (list.accounts[list.size].domain == nullptr) {
-        list.accounts[list.size].domain = cur;
-      } else if (list.accounts[list.size].username == nullptr) {
-        list.accounts[list.size].username = cur;
-      } else if (list.accounts[list.size].iteration == nullptr) {
-        list.accounts[list.size].iteration = cur;
-      } else if (list.accounts[list.size].length == 0) {
+      if (account.domain == nullptr) {
+        account.domain = cur;
+      } else if (account.username == nullptr) {
+        account.username = cur;
+      } else if (account.iteration == nullptr) {
+        account.iteration = cur;
+      } else if (account.length == 0) {
         // TODO check length for validity
-        list.accounts[list.size].length = (size_t)atoi(cur);
+        account.length = (size_t)atoi(cur);
       } else {
-        fprintf(stderr, "Error: too many columns in database file, line %zu",
+        fprintf(stderr, "Error: too many columns in database file, line %zu\n",
                 list.size + 1);
         free(list.accounts);
         list.accounts = nullptr;
@@ -221,8 +234,8 @@ static struct account_list parse_accounts(char *begin, const char *end) {
     }
   }
   if (cur < end) { // missing a newline at the end of the file
-    list.accounts[list.size].characters = cur;
-    ++list.size;
+    account.characters = cur;
+    push_account(&list, account);
   }
   return list;
 }

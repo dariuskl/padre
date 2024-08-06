@@ -30,8 +30,10 @@ test: build/padre_test build/padre
 	@./build/padre 1 2 3 > /dev/null 2>&1 || echo "OK"
 	@echo -n "calling padre with a non-existent file yields an error: "
 	@./build/padre no_such_file > /dev/null 2>&1 || echo "OK"
+	@echo -n "a file with two entries is parsed correctly: "
+	@echo -e "a,b,0,32,*\nc,d,1,16,:alnum:" | ./build/padre -
 	@echo -n "a file without newline at the end is parsed correctly: "
-	@echo -n "domain.com,user@domain.com,0,32,*" | ./build/padre -
+	@echo -n "a,b,0,32,*" | ./build/padre -
 	@echo -n "a single account entry is automatically selected: OK"
 
 clean:
