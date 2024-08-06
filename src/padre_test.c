@@ -66,7 +66,7 @@ static void tests_for_to_pwdchars(void) {
 }
 
 static void test_enumerate_charset(char *class, const char *expected) {
-  printf("\ttesting character class `%s` ...\n", class);
+  printf("\ttesting character spec `%s` ...\n", class);
 
   char *res;
   size_t rlen;
@@ -103,7 +103,15 @@ static void tests_for_enumerate_charset(void) {
   test_enumerate_charset(":xdigit:", XDIGIT);
   test_enumerate_charset("*", KLEENE);
 
+  // test subtly broken inputs
   test_enumerate_charset(":alnum", ":alnum");
+
+  // test ranges
+  test_enumerate_charset("a-z", "abcdefghijklmnopqrstuvwxyz");
+
+  // test for repetition - TODO find a way to fold redundant chars
+  //test_enumerate_charset("a-za-za-za-za-za-za-za-za-za-za-za-za-za-za-za-za-z",
+  //                       "abcdefghijklmnopqrstuvwxyz");
 }
 
 int main(void) {

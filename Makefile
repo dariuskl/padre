@@ -7,7 +7,7 @@ CFLAGS += -O3 -g -Og
 
 .PHONY: test clean install uninstall
 
-all: build build/padre test
+all: build build/padre build/padre_test
 
 build:
 	mkdir build

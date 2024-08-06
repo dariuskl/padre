@@ -59,24 +59,24 @@ static char *to_pwdchars(char *str, size_t len, const char *chars,
   return str;
 }
 
-static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
-  char chrs[95]; // as big as `|*|` plus one for the \0
-  char l;        // left side of a character range
-  int op;        // operator found (`-`) <- not a smiley!
-  char *result;
-  size_t len;
+static char *push_char(char *begin, const char *end, const char c) {
+  if (begin != nullptr && begin < end) {
+    *begin = c;
+    return begin + 1;
+  }
+  return nullptr;
+}
 
+static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
   if (spec == nullptr || res == nullptr || rlen == nullptr) {
     errno = EINVAL;
     return -1;
   }
 
-  result = chrs;
-  len = strlen(spec);
-
   // Resolve character classes.  If no `spec` is given, assume all ASCII
   // characters may be used.
-  if (len == 0 || strcmp(spec, ":graph:") == 0 || strcmp(spec, "*") == 0) {
+  if (strcmp(spec, "") == 0 || strcmp(spec, ":graph:") == 0 ||
+      strcmp(spec, "*") == 0) {
     spec = "!-~";
   } else if (strcmp(spec, ":alnum:") == 0) {
     spec = "a-zA-Z0-9";
@@ -96,6 +96,13 @@ static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
     spec = "A-Fa-f0-9";
   }
 
+  char chrs[95]; // as big as `|*|` plus one for the \0
+  char l;        // left side of a character range
+  int op;        // operator found (`-`) <- not a smiley!
+
+  char *result = chrs;
+  const char *end = chrs + 95;
+
   l = '\0';
   op = 0;
   while (*spec != '\0') {
@@ -104,22 +111,19 @@ static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
       continue;
 
     if (l == '\0' && c == '-') {
-      *result = c;
-      result++;
+      result = push_char(result, end, c);
     } else if (l == '\0' && c != '-') {
       l = c;
     } else if (l != '\0' && c == '-') {
       op = 1;
     } else if (l != '\0' && c != '-' && op == 1) {
       for (; l <= c; l++) {
-        *result = l;
-        result++;
+        result = push_char(result, end, l);
       }
       op = 0;
       l = '\0';
     } else if (l != '\0' && c != '-' && op == 0) {
-      *result = l;
-      result++;
+      result = push_char(result, end, l);
       l = c;
     }
 
@@ -127,14 +131,17 @@ static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
   }
 
   if (l != '\0') {
-    *result = l;
-    ++result;
+    result = push_char(result, end, l);
   }
   if (op == 1) {
-    *result = '-';
-    ++result;
+    result = push_char(result, end, '-');
   }
-  *result = '\0';
+  result = push_char(result, end, '\0');
+
+  if (result == nullptr) {
+    errno = EINVAL;
+    return -1;
+  }
 
   *rlen = strlen(chrs);
   *res = malloc(*rlen);
