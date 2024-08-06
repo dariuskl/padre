@@ -1,4 +1,4 @@
-# Padre — Password Derivator
+# Padre — A Password Derivator
 
 A simple password derivator with a focus on long-term stability and ease-of-use
 featuring a command-line and graphical user interface.
@@ -7,6 +7,30 @@ It works by deriving complex passwords based on a master password for any
 account given by domain, username, and an optional sequence number.
 
 ## Usage
+
+To generate a password for a user `my_username` of the website `domain.com`,
+one would use below command.
+
+    padre domain.com my_username
+
+Realizing that there are constraints by the website, one can configure the
+password shall be 32 characters long and consist only of letters, numbers,
+and `!` or `$` as below.
+
+    padre domain.com my_username -l 32 -c 'a-zA-Z0-9!$'
+
+After getting notified by [haveibeenpwned] the password can be changed by
+generating another iteration.
+
+[haveibeenpwned]: https://haveibeenpwned.com
+
+    padre domain.com my_username -i 1 -l 32 -c 'a-zA-Z0-9!$'
+
+In order to not have to type stuff like that over and over again, a CSV file
+containing the accounts can be used.
+
+    echo "domain.com,my_username,1,32,a-zA-Z0-9!$" >> accounts.csv
+    padre accounts.csv
 
 ### Providing the password as a QR code
 
