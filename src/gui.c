@@ -17,6 +17,18 @@
 #include "nuklear_impl.h"
 #include "padre.c"
 
+static constexpr int num_accounts = 3;
+static const struct account {
+  const char *domain;
+  const char *username;
+  const char *iteration;
+  const char *format;
+  int length;
+} accounts[num_accounts] = {
+    {"accounts.firefox.com", "kellermann@protonmail.com", "0", "*", 64},
+    {"adac.de", "kellermann+adac@protonmail.com", "0", "*", 16},
+    {"alditalk.de", "017663376214", "0", "a-zA-Z0-9!#$*+-.?_", 30}};
+
 int main(const int argc, char *argv[]) {
   (void)argc;
   (void)argv;
@@ -28,7 +40,7 @@ int main(const int argc, char *argv[]) {
 
   SDL_Window *const win =
       SDL_CreateWindow("Padre", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                       640, 480, SDL_WINDOW_SHOWN);
+                       800, 480, SDL_WINDOW_SHOWN);
   if (win == NULL) {
     printf("SDL_CreateWindow(): %s\n", SDL_GetError());
     SDL_Quit();
@@ -65,7 +77,48 @@ int main(const int argc, char *argv[]) {
       }
     }
     nk_input_end(ctx);
-    // TODO draw here
+
+    if (nk_begin(ctx, "accounts", nk_rect(0, 0, 800, 480), 0U)) {
+      const float row_height = 20.f;
+      nk_layout_row_template_begin(ctx, row_height);
+      nk_layout_row_template_push_variable(ctx, 150);
+      nk_layout_row_template_push_variable(ctx, 250);
+      nk_layout_row_template_push_static(ctx, 80);
+      nk_layout_row_template_push_static(ctx, 60);
+      nk_layout_row_template_push_variable(ctx, 100);
+      nk_layout_row_template_push_static(ctx, 30);
+      nk_layout_row_template_push_static(ctx, 30);
+      nk_layout_row_template_end(ctx);
+
+      nk_label(ctx, "Domain", NK_TEXT_LEFT);
+      nk_label(ctx, "Username", NK_TEXT_LEFT);
+      nk_label(ctx, "Iteration", NK_TEXT_LEFT);
+      nk_label(ctx, "Length", NK_TEXT_LEFT);
+      nk_label(ctx, "Format", NK_TEXT_LEFT);
+      nk_label(ctx, "", NK_TEXT_LEFT);
+      nk_label(ctx, "", NK_TEXT_LEFT);
+
+      for (int i = 0; i < num_accounts; ++i) {
+        char len[8];
+        snprintf(len, sizeof len, "%d", accounts[i].length);
+        nk_label(ctx, accounts[i].domain, NK_TEXT_LEFT);
+        nk_label(ctx, accounts[i].username, NK_TEXT_LEFT);
+        nk_label(ctx, accounts[i].iteration, NK_TEXT_CENTERED);
+        nk_label(ctx, len, NK_TEXT_CENTERED);
+        nk_label(ctx, accounts[i].format, NK_TEXT_LEFT);
+        if (nk_button_label(ctx, "🔑")) {
+          // TODO generate
+        }
+        if (nk_button_label(ctx, "🖊")) {
+          // TODO edit
+        }
+      }
+    }
+    nk_end(ctx);
+
+    SDL_RenderClear(renderer);
+    nk_sdl_render(NK_ANTI_ALIASING_ON);
+    SDL_RenderPresent(renderer);
   }
 
   nk_sdl_shutdown();

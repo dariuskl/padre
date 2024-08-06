@@ -102,8 +102,8 @@ static error_t parse_opt(const int key, char *arg, struct argp_state *state) {
     break;
 
   case ARGP_KEY_END:
-    if (state->arg_num < 2) {
-      fputs("error: not enough arguments\n", stderr);
+    if (state->arg_num < 1 || state->arg_num > 2) {
+      fputs("error: wrong number of arguments\n", stderr);
       argp_usage(state);
     }
     break;
@@ -127,7 +127,7 @@ static struct argp_option argp_options[] = {
 static struct argp argp = {
     argp_options,
     &parse_opt,
-    "<domain> <username>",
+    "<domain> <username>\n<database>",
     "Generates a deterministic password from the <domain> and <username>."
     " Optionally a password iteration number may be given to generate"
     " a new password for the same combination of domain and username.",
@@ -139,6 +139,21 @@ int main(const int argc, char *argv[]) {
   int ret = argp_parse(&argp, argc, argv, 0, 0, &options);
   if (ret != 0)
     exit(1);
+
+  if (options.domain == nullptr) {
+    // start ncurses UI
+    initscr();
+    atexit(quit);
+    clear();
+    noecho();
+    curs_set(0);
+    cbreak();
+    nl();
+    keypad(stdscr, TRUE);
+    for (;; refresh()) {
+    }
+    endwin();
+  }
 
   if (options.passno == nullptr) {
     options.passno = "0";

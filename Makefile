@@ -14,7 +14,7 @@ build:
 	mkdir build
 
 build/padre: src/cli.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -lncurses $< -o $@
 
 build/nuklear.o: lib/nuklear_impl.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -isystem lib/nuklear -c $< -o $@
