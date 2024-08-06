@@ -145,7 +145,7 @@ int main(const int argc, char *argv[]) {
                         password);
 
   // clear the master password               | ... and here
-  memset(master_pwd, 0, 64); // TODO explicit
+  memset(master_pwd, 0, MAX_MASTER_PASSWORD_LENGTH); // TODO explicit
   master_pwd_len = 0;
 
   if (ret != 0) {

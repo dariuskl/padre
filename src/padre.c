@@ -59,48 +59,47 @@ static char *to_pwdchars(char *str, size_t len, const char *chars,
   return str;
 }
 
-static int enumerate_charset(const char *def, char **res, size_t *rlen) {
-  char chrs[95]; /* as big as `|*|` plus one for the \0 */
-  char l;        /* left side of a character range */
-  int op;        /* operator found (`-`) <- not a smiley! */
+static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
+  char chrs[95]; // as big as `|*|` plus one for the \0
+  char l;        // left side of a character range
+  int op;        // operator found (`-`) <- not a smiley!
   char *result;
   size_t len;
 
-  if (def == nullptr || res == nullptr || rlen == nullptr) {
+  if (spec == nullptr || res == nullptr || rlen == nullptr) {
     errno = EINVAL;
     return -1;
   }
 
   result = chrs;
-  len = strlen(def);
+  len = strlen(spec);
 
-  /* Resolve character classes.  If no `def` is given, assume all ASCII
-   * characters may be used.
-   */
-  if (len == 0 || strcmp(def, ":graph:") == 0 || strcmp(def, "*") == 0) {
-    def = "!-~";
-  } else if (strcmp(def, ":alnum:") == 0) {
-    def = "a-zA-Z0-9";
-  } else if (strcmp(def, ":alpha:") == 0) {
-    def = "a-zA-Z";
-  } else if (strcmp(def, ":digit:") == 0) {
-    def = "0-9";
-  } else if (strcmp(def, ":lower:") == 0) {
-    def = "a-z";
-  } else if (strcmp(def, ":punct:") == 0) {
-    def = "!-/:-@[-`{-~";
-  } else if (strcmp(def, ":upper:") == 0) {
-    def = "A-Z";
-  } else if (strcmp(def, ":word:") == 0) {
-    def = "A-Za-z0-9_";
-  } else if (strcmp(def, ":xdigit:") == 0) {
-    def = "A-Fa-f0-9";
+  // Resolve character classes.  If no `spec` is given, assume all ASCII
+  // characters may be used.
+  if (len == 0 || strcmp(spec, ":graph:") == 0 || strcmp(spec, "*") == 0) {
+    spec = "!-~";
+  } else if (strcmp(spec, ":alnum:") == 0) {
+    spec = "a-zA-Z0-9";
+  } else if (strcmp(spec, ":alpha:") == 0) {
+    spec = "a-zA-Z";
+  } else if (strcmp(spec, ":digit:") == 0) {
+    spec = "0-9";
+  } else if (strcmp(spec, ":lower:") == 0) {
+    spec = "a-z";
+  } else if (strcmp(spec, ":punct:") == 0) {
+    spec = "!-/:-@[-`{-~";
+  } else if (strcmp(spec, ":upper:") == 0) {
+    spec = "A-Z";
+  } else if (strcmp(spec, ":word:") == 0) {
+    spec = "A-Za-z0-9_";
+  } else if (strcmp(spec, ":xdigit:") == 0) {
+    spec = "A-Fa-f0-9";
   }
 
   l = '\0';
   op = 0;
-  while (*def != '\0') {
-    register char c = *def;
+  while (*spec != '\0') {
+    const char c = *spec;
     if (isspace(c))
       continue;
 
@@ -124,23 +123,23 @@ static int enumerate_charset(const char *def, char **res, size_t *rlen) {
       l = c;
     }
 
-    def++;
+    ++spec;
   }
 
   if (l != '\0') {
     *result = l;
-    result++;
+    ++result;
   }
   if (op == 1) {
     *result = '-';
-    result++;
+    ++result;
   }
   *result = '\0';
 
   *rlen = strlen(chrs);
   *res = malloc(*rlen);
-  if (*res == NULL) {
-    perror("enumerate_charset()");
+  if (*res == nullptr) {
+    perror("While enumerating the charset");
     return -1;
   }
   memcpy(*res, chrs, *rlen + 1);
