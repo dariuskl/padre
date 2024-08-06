@@ -42,15 +42,19 @@ Finally, build padre as follows.
 
 ## Implementation notes
 
-- jumbo builds
-- no-free
+The program is built in one step, following the "jumbo build" principle.
 
+A lot of resources allocated throughout the code are not freed. This is on
+purpose. It is much easier to just let the OS release the resources when the
+process exits in such a short-lived program.
 
 - `cli.c` — the command-line interface parser
 - `tui.c` — the terminal UI for selecting account and entering master password
 - `padre.c` — the password-derivation logic
 - `main.c` — `main()`, file management, program flow
 
+The dependency graph is shown below. The top row consists of libraries while
+other rows contain files.
 
     ┌──────┐            ┌─────────┐             ┌────────┐
     │ argp │            │ ncurses │             │ scrypt │
