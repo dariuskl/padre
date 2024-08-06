@@ -100,15 +100,12 @@ static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
     spec = "!-~öäüµ€§°";
   }
 
-  char chrs[95]; // as big as `|*|` plus one for the \0
-  char l;        // left side of a character range
-  int op;        // operator found (`-`) <- not a smiley!
+  char chars[95]; // as big as `|*|` plus one for the \0
+  char *result = chars;
+  const char *end = chars + 95;
 
-  char *result = chrs;
-  const char *end = chrs + 95;
-
-  l = '\0';
-  op = 0;
+  char l = '\0'; // left side of a character range
+  int op = 0;    // operator found (`-`) <- not a smiley!
   while (*spec != '\0') {
     const char c = *spec;
     if (isspace(c))
@@ -147,13 +144,13 @@ static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
     return -1;
   }
 
-  *rlen = strlen(chrs);
+  *rlen = strlen(chars);
   *res = malloc(*rlen);
   if (*res == nullptr) {
     perror("While enumerating the charset");
     return -1;
   }
-  memcpy(*res, chrs, *rlen + 1);
+  memcpy(*res, chars, *rlen + 1);
 
   return 0;
 }
@@ -179,6 +176,11 @@ static struct account_list new_account_list(const size_t initial_capacity) {
   };
   list.accounts = malloc(list.capacity * sizeof(struct account));
   return list;
+}
+
+static void free_account_list(struct account_list *list) {
+  free(list->accounts);
+  *list = (struct account_list){nullptr, 0, 0};
 }
 
 static void push_account(struct account_list *list,
@@ -218,13 +220,21 @@ static struct account_list parse_accounts(char *begin, const char *end) {
       } else if (account.iteration == nullptr) {
         account.iteration = cur;
       } else if (account.length == 0) {
-        // TODO check length for validity
+        const int tmp = atoi(cur);
+        if (tmp == 0 || tmp < 0) {
+          fprintf(
+              stderr,
+              "Error: the length of the derived password may not be negative or"
+              " zero, line %zu\n",
+              list.size + 1);
+          free_account_list(&list);
+          return list;
+        }
         account.length = (size_t)atoi(cur);
       } else {
         fprintf(stderr, "Error: too many columns in database file, line %zu\n",
                 list.size + 1);
-        free(list.accounts);
-        list.accounts = nullptr;
+        free_account_list(&list);
         return list;
       }
       cur = str + 1;
