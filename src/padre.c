@@ -48,15 +48,17 @@ derive_password(const size_t master_password_len,
   return ret;
 }
 
-static char *to_pwdchars(char *str, size_t len, const char *chars,
-                         const size_t clen) {
-  for (; len > 0; len--) {
-    *str = chars[*str % (int)clen];
-    ++str;
+// converts the bytes that scrypt spits out into characters from `chars`
+static char *to_chars(uint8_t *bytes, size_t len, const char *chars,
+                      const size_t clen) {
+  for (; len > 0; --len) {
+    char *str = (char *)bytes;
+    *str = chars[*bytes % (int)clen];
+    ++bytes;
   }
-  *str = '\0';
+  *bytes = '\0';
 
-  return str;
+  return (char*)bytes;
 }
 
 static char *push_char(char *begin, const char *end, const char c) {
@@ -94,6 +96,8 @@ static int enumerate_charset(const char *spec, char **res, size_t *rlen) {
     spec = "A-Za-z0-9_";
   } else if (strcmp(spec, ":xdigit:") == 0) {
     spec = "A-Fa-f0-9";
+  } else if (strcmp(spec, "*") == 0) {
+    spec = "!-~öäüµ€§°";
   }
 
   char chrs[95]; // as big as `|*|` plus one for the \0

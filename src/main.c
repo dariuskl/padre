@@ -160,7 +160,7 @@ int main(const int argc, char *argv[]) {
     perror("Error enumerating the charset");
     return EXIT_FAILURE;
   }
-  to_pwdchars(password, account.length, chars, len);
+  to_chars((uint8_t *)password, account.length, chars, len);
   fprintf(stdout, "%s\n", password);
 
   return EXIT_SUCCESS;

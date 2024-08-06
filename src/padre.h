@@ -28,7 +28,9 @@
 #define MAX_DATABASE_FILE_SIZE (1024 * 16)
 #define AVERAGE_DATABASE_ENTRY_SIZE 60
 
-#define MP_N 32768
+// These settings correspond with the defaults of the Python scrypt bindings.
+// ... for historical reasons ...
+#define MP_N 16384
 #define MP_r 8
 #define MP_p 1
 
