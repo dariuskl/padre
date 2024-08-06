@@ -14,6 +14,8 @@
 //   limitations under the License.
 //
 
+#include "padre.h"
+
 #include <scrypt-kdf.h>
 
 #include <ctype.h>
@@ -21,17 +23,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#define MP_N 32768
-#define MP_r 8
-#define MP_p 1
 
 static int
 derive_password(const size_t master_password_len,
                 const char master_password[static master_password_len],
                 const char *domain, const char *username, const char *passno,
-                const size_t buf_len, uint8_t buf[static buf_len]) {
+                const size_t buf_len, char buf[static buf_len]) {
   const size_t salt_len = strlen(domain) + strlen(username) + strlen(passno);
   char *const salt = malloc(salt_len + 1);
   if (salt == nullptr) {
@@ -42,12 +39,17 @@ derive_password(const size_t master_password_len,
   memcpy(salt + strlen(salt), username, strlen(username) + 1);
   memcpy(salt + strlen(salt), passno, strlen(passno) + 1);
 
-  return crypto_scrypt((const uint8_t *)master_password, master_password_len,
-                       (uint8_t *)salt, salt_len, MP_N, MP_r, MP_p, buf,
-                       buf_len);
+  const int ret = crypto_scrypt((const uint8_t *)master_password,
+                                master_password_len, (uint8_t *)salt, salt_len,
+                                MP_N, MP_r, MP_p, (uint8_t *)buf, buf_len);
+
+  free(salt);
+
+  return ret;
 }
 
-static char *to_pwdchars(char *str, size_t len, char *chars, const size_t clen) {
+static char *to_pwdchars(char *str, size_t len, const char *chars,
+                         const size_t clen) {
   for (; len > 0; len--) {
     *str = chars[*str % (int)clen];
     ++str;
@@ -64,7 +66,7 @@ static int enumerate_charset(const char *def, char **res, size_t *rlen) {
   char *result;
   size_t len;
 
-  if (def == NULL || res == NULL || rlen == NULL) {
+  if (def == nullptr || res == nullptr || rlen == nullptr) {
     errno = EINVAL;
     return -1;
   }
@@ -144,4 +146,73 @@ static int enumerate_charset(const char *def, char **res, size_t *rlen) {
   memcpy(*res, chrs, *rlen + 1);
 
   return 0;
+}
+
+struct account {
+  const char *domain;
+  const char *username;
+  const char *iteration;
+  const char *characters; // the permissible characters for the password
+  size_t length;          // the length the generated password should have
+};
+
+struct account_list {
+  struct account *accounts;
+  size_t size;
+  size_t capacity;
+};
+
+static struct account_list parse_accounts(char *begin, const char *end) {
+  struct account_list list = {
+      .accounts = nullptr,
+      .capacity = end - begin < AVERAGE_DATABASE_ENTRY_SIZE
+                      ? 1
+                      : (size_t)((end - begin) / AVERAGE_DATABASE_ENTRY_SIZE),
+  };
+  list.accounts = calloc(list.capacity, sizeof(struct account));
+
+  const char *cur = begin;
+  for (char *str = begin; str != end; ++str) {
+    if (list.size == list.capacity) {
+      list.capacity *= 2;
+      list.accounts =
+          realloc(list.accounts, list.capacity * sizeof(struct account));
+    }
+
+    switch (*str) {
+    case '\n':
+      *str = '\0';
+      list.accounts[list.size].characters = cur;
+      ++list.size;
+      cur = str + 1;
+      break;
+    case ',':
+      *str = '\0';
+      if (list.accounts[list.size].domain == nullptr) {
+        list.accounts[list.size].domain = cur;
+      } else if (list.accounts[list.size].username == nullptr) {
+        list.accounts[list.size].username = cur;
+      } else if (list.accounts[list.size].iteration == nullptr) {
+        list.accounts[list.size].iteration = cur;
+      } else if (list.accounts[list.size].length == 0) {
+        // TODO check length for validity
+        list.accounts[list.size].length = (size_t)atoi(cur);
+      } else {
+        fprintf(stderr, "Error: too many columns in database file, line %zu",
+                list.size + 1);
+        free(list.accounts);
+        list.accounts = nullptr;
+        return list;
+      }
+      cur = str + 1;
+      break;
+    default:
+      break;
+    }
+  }
+  if (cur < end) { // missing a newline at the end of the file
+    list.accounts[list.size].characters = cur;
+    ++list.size;
+  }
+  return list;
 }

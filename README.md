@@ -6,6 +6,18 @@ featuring a command-line and graphical user interface.
 It works by deriving complex passwords based on a master password for any
 account given by domain, username, and an optional sequence number.
 
+## Usage
+
+### Providing the password as a QR code
+
+I often find myself generating passwords that I then need to transfer to my
+mobile phone. This can be done by having a trustworthy QR code app on the phone
+and generating a QR code from the password using the [`qrencode` utility].
+
+    padre > qrencode -t ansiutf8
+
+[`qrencode` utility]: https://fukuchi.org/works/qrencode/
+
 ## Building
 
 Padre can be built on any Linux system that can build its dependencies (which
@@ -21,12 +33,37 @@ Then build and install scrypt as follows.
 
 [the official scrypt webpage]: https://www.tarsnap.com/scrypt.html
 
-The GUI requires SDL2 to be present in the system. It is usally best obtained
-via the system package manager.
+The GUI requires ncurses to be present in the system. It is usually best
+obtained via the system package manager.
 
 Finally, build padre as follows.
 
     make
+
+## Implementation notes
+
+- jumbo builds
+- no-free
+
+
+- `cli.c` — the command-line interface parser
+- `tui.c` — the terminal UI for selecting account and entering master password
+- `padre.c` — the password-derivation logic
+- `main.c` — `main()`, file management, program flow
+
+
+    ┌──────┐            ┌─────────┐             ┌────────┐
+    │ argp │            │ ncurses │             │ scrypt │
+    └──────┘            └─────────┘             └────────┘
+       ↑                     ↑                      ↑
+    ┌───────┐            ┌───────┐              ┌─────────┐
+    │ cli.c │            │ tui.c │              │ padre.c │
+    └───────┘            └───────┘              └─────────┘
+        ↑                    ↑                       ↑
+        └────────────────────┼───────────────────────┘
+                        ┌────────┐
+                        │ main.c │
+                        └────────┘
 
 ## LICENSE
 
