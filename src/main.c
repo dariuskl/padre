@@ -18,6 +18,8 @@
 #include "padre.c"
 #include "tui.c"
 
+#include <locale.h>
+
 struct buffer {
   char *data;
   size_t size;
@@ -123,6 +125,8 @@ static struct account determine_account(const struct cli_opts options) {
 }
 
 int main(const int argc, char *argv[]) {
+  setlocale(LC_ALL, "");
+
   const struct account account = determine_account(cli_parse(argc, argv));
 
   if (!account.domain) {
