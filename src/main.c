@@ -101,9 +101,7 @@ static struct account determine_account(const struct cli_opts options) {
     }
 
     const int selected_account = tui_show_menu(accounts.size, items);
-    if (selected_account < 0) {
-      perror("Error trying to show ncurses menu");
-    } else {
+    if (selected_account >= 0) {
       account = accounts.accounts[selected_account];
     }
 

@@ -69,8 +69,9 @@ static int tui_show_menu(const size_t num_items,
 
   MENU *menu = new_menu(nc_items);
   set_menu_format(menu, LINES - 3, 1);
-  int ret = post_menu(menu);
+  const int ret = post_menu(menu);
   if (ret != E_OK) {
+    fprintf(stderr, "Error trying to show ncurses menu: %d\n", ret);
     endwin();
     return -1;
   }
