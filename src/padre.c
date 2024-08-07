@@ -207,19 +207,30 @@ static struct account_list parse_accounts(char *begin, const char *end) {
     case '\n':
       *str = '\0';
       account.characters = cur;
-      push_account(&list, account);
+      if (account.domain == nullptr || account.username == nullptr) {
+        fprintf(stderr, "Error: invalid entry at line %zu, skipping\n",
+                list.size + 1);
+      } else {
+        push_account(&list, account);
+      }
       account = (struct account){nullptr, nullptr, nullptr, nullptr, 0};
       cur = str + 1;
       break;
     case ',':
-      *str = '\0';
       if (account.domain == nullptr) {
+        *str = '\0';
         account.domain = cur;
+        cur = str + 1;
       } else if (account.username == nullptr) {
+        *str = '\0';
         account.username = cur;
+        cur = str + 1;
       } else if (account.iteration == nullptr) {
+        *str = '\0';
         account.iteration = cur;
+        cur = str + 1;
       } else if (account.length == 0) {
+        *str = '\0';
         const int tmp = atoi(cur);
         if (tmp == 0 || tmp < 0) {
           fprintf(
@@ -231,13 +242,10 @@ static struct account_list parse_accounts(char *begin, const char *end) {
           return list;
         }
         account.length = (size_t)atoi(cur);
+        cur = str + 1;
       } else {
-        fprintf(stderr, "Error: too many columns in database file, line %zu\n",
-                list.size + 1);
-        free_account_list(&list);
-        return list;
+        // ignore commas here, as they are part of the pattern
       }
-      cur = str + 1;
       break;
     default:
       break;

@@ -29,6 +29,8 @@ void free_buffer(struct buffer *buffer) {
   *buffer = (struct buffer){nullptr, 0, 0};
 }
 
+#define CHUNK_SIZE 1024
+
 // The buffer allocating in this function is never freed. This is on purpose.
 // The file opened in this function is never closed. This is also on purpose.
 // Resources are going to be released eventually when the program exits.
@@ -41,12 +43,13 @@ static struct buffer read_entire_file(const char *path) {
     return buf;
   }
 
-  buf.data = malloc(1024);
-  buf.capacity = 1024;
+  buf.data = malloc(CHUNK_SIZE);
+  buf.capacity = CHUNK_SIZE;
 
-  for (size_t bytes_read; (bytes_read = fread(buf.data, 1, 1024, f)) > 0;
-       buf.size += bytes_read) {
-    if (buf.size > buf.capacity) {
+  for (size_t bytes_read;
+       (bytes_read = fread(buf.data + buf.size, 1, CHUNK_SIZE, f)) > 0;) {
+    buf.size += bytes_read;
+    if (buf.size + CHUNK_SIZE > buf.capacity) {
       buf.capacity *= 2;
       if (buf.capacity > MAX_DATABASE_FILE_SIZE) {
         fputs("Error: database file exceeds size limit\n", stderr);
@@ -76,7 +79,7 @@ static struct account determine_account(const struct cli_opts options) {
         parse_accounts(buf.data, buf.data + buf.size);
 
     if (accounts.size == 0) {
-      fputs("Error: database file contains no entries\n", stderr);
+      fputs("Error: could not read any accounts from given file\n", stderr);
       return account;
     }
 
