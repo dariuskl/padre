@@ -69,7 +69,11 @@ static int tui_show_menu(const size_t num_items,
 
   MENU *menu = new_menu(nc_items);
   set_menu_format(menu, LINES - 3, 1);
-  post_menu(menu);
+  int ret = post_menu(menu);
+  if (ret != E_OK) {
+    endwin();
+    return -1;
+  }
   refresh();
 
   const int selected_item = tui__wait_user_selection(menu);
