@@ -19,8 +19,6 @@
 #include <curses.h>
 #include <menu.h>
 
-#include <termios.h>
-
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -30,7 +28,7 @@ struct tui_item {
 };
 
 static int tui__wait_user_selection(MENU *menu) {
-  for (int c; (c = getch()) != KEY_F(1); refresh()) {
+  for (int c; (c = getch()) != 'q'; refresh()) {
     switch (c) {
     case KEY_DOWN:
       menu_driver(menu, REQ_DOWN_ITEM);
@@ -50,7 +48,7 @@ static int tui__wait_user_selection(MENU *menu) {
 static int tui_show_menu(const size_t num_items,
                          const struct tui_item items[static num_items]) {
   initscr();
-  cbreak();
+  cbreak(); // get characters immediately, don't cache until line break
   noecho();
   keypad(stdscr, TRUE);
 
@@ -61,8 +59,16 @@ static int tui_show_menu(const size_t num_items,
   }
   nc_items[num_items] = nullptr;
 
+  attron(A_REVERSE);
+  mvprintw(
+      LINES - 2, 0,
+      "Press [q] to quit or [ENTER] to select. Showing %d out of %zu items.",
+      LINES - 2, num_items);
+  attroff(A_REVERSE);
+  mvprintw(LINES - 1, 0, "Type to search: not yet implemented :-(");
+
   MENU *menu = new_menu(nc_items);
-  mvprintw(LINES - 2, 0, "press [F1] to exit, [ENTER] to select");
+  set_menu_format(menu, LINES - 3, 1);
   post_menu(menu);
   refresh();
 
@@ -78,36 +84,30 @@ static int tui_show_menu(const size_t num_items,
   return selected_item;
 }
 
-// TODO use ncurses here as well
 // Asks the user for his master password, stores it in `passwd` and updates the
 // length in `len`.
 //   len — The length of the buffer resp. the length of the read password
 //         string not including the terminating null byte.
 // Returns 0 on success; -1 in case of a failure.
 static int tui_ask_password(char *passwd, size_t *len) {
-  static struct termios term_noecho, term_default;
-  int c;
+  filter(); // only affect the current line
+  initscr();
+  cbreak(); // don't cache the characters
+  noecho(); // don't print the password
+  keypad(stdscr, TRUE);
 
-  /* turn off echoing */
-  tcgetattr(STDIN_FILENO, &term_default);
-  term_noecho = term_default;
-  term_noecho.c_lflag &= (unsigned)~ECHO;
-  tcsetattr(STDIN_FILENO, TCSANOW, &term_noecho);
+  printw("Enter the master password: ");
 
-  fprintf(stdout, "Enter the master password: ");
-  fflush(stdout);
   size_t curr_len = 0;
-  while ((c = fgetc(stdin)) != EOF && c != '\n' && curr_len < *len) {
+  int c;
+  for (; (c = getch()) != EOF && c != '\n' && curr_len < *len; ++curr_len) {
     passwd[curr_len] = (char)c;
-    curr_len++;
   }
   passwd[curr_len] = '\0';
 
   *len = curr_len;
 
-  /* turn echoing back on */
-  tcsetattr(STDIN_FILENO, TCSANOW, &term_default);
-  fprintf(stdout, "\n");
+  endwin();
 
   if (c == EOF)
     return -1;
