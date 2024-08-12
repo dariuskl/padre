@@ -3,7 +3,7 @@ CFLAGS += -Werror -pedantic-errors
 CFLAGS += -Wconversion -Wsign-conversion
 CFLAGS += -Wno-unused-function
 CFLAGS += -std=c2x
-CFLAGS += -O3 -g -Og
+CFLAGS += -O3
 
 .PHONY: test clean install uninstall
 
