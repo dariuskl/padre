@@ -2,45 +2,54 @@ CFLAGS += -Wall -Wextra -pedantic
 CFLAGS += -Werror -pedantic-errors
 CFLAGS += -Wconversion -Wsign-conversion
 CFLAGS += -Wno-unused-function
-CFLAGS += -std=c2x
-CFLAGS += -O3
+CFLAGS += -std=c23 -nostdlib -fno-stack-protector -fwhole-program
+#CFLAGS += -fanalyzer
+CFLAGS += -fno-tree-loop-distribute-patterns  # don't emit calls to memset etc.
+CFLAGS += -O2
+#CFLAGS += -Og -g
 
-.PHONY: test clean install uninstall
+.PHONY: all clean test
 
-all: build build/padre build/padre_test
-
-build:
-	mkdir build
-
-build/padre: LDFLAGS += -lmenu -lncurses -lscrypt-kdf
-build/padre: src/main.c src/padre.c src/cli.c src/tui.c src/padre.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< -o $@ $(LDFLAGS)
-
-build/unity.o: lib/unity/unity.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -isystem lib/unity -c $< -o $@
-
-build/padre_test: src/padre_test.c build/unity.o
-	$(CC) $(CPPFLAGS) $(CFLAGS) -isystem lib/unity $(LDFLAGS) $^ -o $@
-
-test: build/padre_test build/padre
-	./build/padre_test
-	@echo -n "calling padre without arguments yields an error: "
-	@./build/padre > /dev/null 2>&1 || echo "OK"
-	@echo -n "calling padre with too many arguments yields an error: "
-	@./build/padre 1 2 3 > /dev/null 2>&1 || echo "OK"
-	@echo -n "calling padre with a non-existent file yields an error: "
-	@./build/padre no_such_file > /dev/null 2>&1 || echo "OK"
-	@echo -n "a file with two entries is parsed correctly: "
-	@echo -e "a,b,0,32,*\nc,d,1,16,:alnum:" | ./build/padre -
-	@echo -n "a file without newline at the end is parsed correctly: "
-	@echo -n "a,b,0,32,*" | ./build/padre -
-	@echo -n "a single account entry is automatically selected: OK"
+all: build build/padre build/test_padre build/test_sha256
 
 clean:
 	rm -r build
 
-install: build/padre padre.desktop
-	@echo "Not yet implemented"
+build:
+	mkdir build
 
-uninstall:
-	@echo "Not yet implemented"
+build/padre: src/linux_amd64.c \
+	     src/linux.c       \
+	     src/nonstd.h      \
+	     src/nonstd.c      \
+	     src/main.c        \
+	     src/cli.c         \
+	     src/tui.c         \
+	     src/padre.c       \
+	     src/padre.h       \
+	     src/scrypt.c      \
+	     src/sha256.c      \
+	     Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) src/main.c -o $@ $(LDFLAGS)
+
+build/test_padre: src/linux_amd64.c \
+		  src/linux.c       \
+		  src/nonstd.h      \
+		  src/nonstd.c      \
+		  src/nonstd_test.h \
+		  src/test_padre.c  \
+		  src/sha256.c      \
+		  Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) src/test_padre.c -o $@ $(LDFLAGS)
+
+build/test_sha256: src/linux_amd64.c \
+		   src/linux.c       \
+		   src/nonstd.h      \
+		   src/nonstd.c      \
+		   src/test_sha256.c \
+		   src/sha256.c      \
+		   Makefile
+	$(CC) $(CPPFLAGS) $(CFLAGS) src/test_sha256.c -o $@ $(LDFLAGS)
+
+test: build/padre build/test_sha256 build/test_padre
+	sh test.sh

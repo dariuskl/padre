@@ -1,174 +1,125 @@
-//
-//   Copyright 2024 Darius Kellermann
-//
-//   Licensed under the Apache License, Version 2.0 (the "License");
-//   you may not use this file except in compliance with the License.
-//   You may obtain a copy of the License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the License is distributed on an "AS IS" BASIS,
-//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//   See the License for the specific language governing permissions and
-//   limitations under the License.
-//
+// This is free and unencumbered software released into the public domain.
 
 #include "cli.c"
 #include "padre.c"
 #include "tui.c"
 
-#include <locale.h>
+#include "padre.h"
+#include "nonstd.h"
 
-struct buffer {
-  char *data;
-  size_t size;
-  size_t capacity;
-};
-
-void free_buffer(struct buffer *buffer) {
-  free(buffer->data);
-  *buffer = (struct buffer){nullptr, 0, 0};
-}
-
-#define CHUNK_SIZE 1024
-
-// The buffer allocating in this function is never freed. This is on purpose.
-// The file opened in this function is never closed. This is also on purpose.
-// Resources are going to be released eventually when the program exits.
-static struct buffer read_entire_file(const char *path) {
-  struct buffer buf = {.data = nullptr, .capacity = 0};
-
-  FILE *f = strcmp(path, "-") == 0 ? stdin : fopen(path, "r");
-  if (!f) {
-    perror(path);
-    return buf;
-  }
-
-  buf.data = malloc(CHUNK_SIZE);
-  buf.capacity = CHUNK_SIZE;
-
-  for (size_t bytes_read;
-       (bytes_read = fread(buf.data + buf.size, 1, CHUNK_SIZE, f)) > 0;) {
-    buf.size += bytes_read;
-    if (buf.size + CHUNK_SIZE > buf.capacity) {
-      buf.capacity *= 2;
-      if (buf.capacity > MAX_DATABASE_FILE_SIZE) {
-        fputs("Error: database file exceeds size limit\n", stderr);
-        free(buf.data);
-        buf.data = nullptr;
-        return buf;
-      }
-      buf.data = realloc(buf.data, buf.capacity);
-    }
-  }
-
-  return buf;
-}
-
-static struct account determine_account(const struct cli_opts options) {
-  struct account account = {nullptr, nullptr, nullptr, nullptr, 0};
-
-  if (options.username == nullptr) {
-    // a database is specified on the command-line
-
-    const struct buffer buf = read_entire_file(options.domain_or_database);
-    if (buf.data == nullptr) {
-      return account;
-    }
-
-    const struct account_list accounts =
-        parse_accounts(buf.data, buf.data + buf.size);
-
-    if (accounts.size == 0) {
-      fputs("Error: could not read any accounts from given file\n", stderr);
-      return account;
-    }
-
-    if (accounts.size == 1) {
-      account = accounts.accounts[0];
-      fputs("Warning: automatically selected the only available account\n",
-            stderr);
-      return account;
-    }
-
-    struct tui_item *items = malloc(accounts.size * sizeof(struct tui_item));
-    for (size_t i = 0; i < accounts.size; ++i) {
-      items[i].name = accounts.accounts[i].domain;
-      snprintf(items[i].description, sizeof items[i].description,
-               "%s, iteration %s", accounts.accounts[i].username,
-               accounts.accounts[i].iteration);
-    }
-
-    const int selected_account = tui_show_menu(accounts.size, items);
-    if (selected_account >= 0) {
-      account = accounts.accounts[selected_account];
-    }
-
-    free(accounts.accounts);
-    free(items);
-
+void csv_push_field(account *acc, utf8 field) {
+  if (utf8_empty(acc->domain)) {
+    acc->domain = field;
+  } else if (utf8_empty(acc->username)) {
+    acc->username = field;
+  } else if (utf8_empty(acc->iteration)) {
+    acc->iteration = field;
+  } else if (utf8_empty(acc->length)) {
+    acc->length = field;
+  } else if (utf8_empty(acc->characters)) {
+    acc->characters = field;
   } else {
-    // the account is specified on the command-line
-
-    account = (struct account){
-        .domain = options.domain_or_database,
-        .username = options.username,
-        .iteration = options.iteration ? options.iteration : "0",
-        .characters = options.characters ? options.characters : "",
-        .length = options.length ? options.length : 64};
+    // keep appending to the characters field
+    acc->characters = (utf8){acc->characters.begin, field.end};
   }
-
-  return account;
 }
 
-int main(const int argc, char *argv[]) {
-  setlocale(LC_ALL, "");
+account csv_parse_account(utf8 str) {
+  const u8 *begin = str.begin;
+  account acc = {};
 
-  const struct account account = determine_account(cli_parse(argc, argv));
-
-  if (!account.domain) {
-    return EXIT_FAILURE;
+  for (u32 c = utf8_nextch(&str); c; c = utf8_nextch(&str)) {
+    if (c == ',') {
+      csv_push_field(&acc, (utf8){begin, str.begin - 1});
+      begin = str.begin;
+    }
   }
 
-  char *password = malloc(account.length + 1);
-  if (password == NULL) {
-    perror("Error allocating memory for the derived password");
-    return EXIT_FAILURE;
+  csv_push_field(&acc, (utf8){begin, str.begin});
+
+  return acc;
+}
+
+u8 input_buffer[MAX_INPUT_SIZE];
+
+utf8 read_stdin(void) {
+  buf8 buf = buf8(input_buffer);
+  while (scan(&buf) > 0) {
   }
+  return (utf8){buf.begin, buf.eod};
+}
+
+account determine_account(const cli_opts options) {
+  if (utf8_eq(options.acc.domain, utf8("-"))
+      && utf8_empty(options.acc.username)) {
+    // read account from stdin
+    utf8 buf = utf8_trim(read_stdin());
+
+    if (utf8_empty(buf)) {
+      println("error: nothing on stdin even though dash was given");
+      exit_with_failure();
+    }
+
+    return csv_parse_account(buf);
+  }
+  // the account is specified on the command-line
+  return options.acc;
+}
+
+i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
+  cli_opts opts = cli_parse(argv, envp);
+  account acc = determine_account(opts);
+
+  if (utf8_empty(acc.iteration)) {
+    acc.iteration = utf8("0");
+  }
+  if (utf8_empty(acc.length)) {
+    acc.length = utf8("64");
+  }
+  if (utf8_empty(acc.characters)) {
+    acc.characters = utf8(":graph:");
+  }
+
+  i32 length;
+  if (!scan_i32(&acc.length, &length)) {
+    println("error: length not given as a decimal integer");
+    exit_with_failure();
+  }
+
+  if (utf8_empty(acc.domain) || utf8_empty(acc.username)
+      || utf8_empty(acc.iteration) || utf8_empty(acc.characters)
+      || length <= 0 || length > MAX_INPUT_SIZE) {
+    println("error: invalid arguments");
+    exit_with_failure();
+  }
+
+  buf8 password = buf8(input_buffer);
 
   // ask the user for his master password    | no program exit between here ...
-  char master_pwd[MAX_MASTER_PASSWORD_LENGTH];
+  u8 mp_buf[MAX_MASTER_PASSWORD_LENGTH];
+  buf8 master_pwd = buf8(mp_buf);
+  tui_ask_password(&master_pwd);
 
-  size_t master_pwd_len = MAX_MASTER_PASSWORD_LENGTH;
-  int ret = tui_ask_password(master_pwd, &master_pwd_len);
-  if (ret != 0) {
-    perror("Error reading the master password from the standard input");
-    return EXIT_FAILURE;
-  }
+  int ret = derive_password((utf8){master_pwd.begin, master_pwd.eod},
+                            acc.domain, acc.username, acc.iteration,
+                            &password, length);
 
-  ret = derive_password(master_pwd_len, master_pwd, account.domain,
-                        account.username, account.iteration, account.length,
-                        password);
-
+  clear_s(master_pwd.begin, master_pwd.eod);
+  master_pwd.eod = master_pwd.begin;
   // clear the master password               | ... and here
-  memset(master_pwd, 0, MAX_MASTER_PASSWORD_LENGTH); // TODO explicit
-  master_pwd_len = 0;
 
   if (ret != 0) {
-    perror("Error deriving the domain password");
-    return EXIT_FAILURE;
+    println("error deriving the domain password");
+    exit_with_failure();
   }
 
-  char *chars;
-  size_t len;
-  ret = enumerate_charset(account.characters, &chars, &len);
-  if (ret != 0) {
-    perror("Error enumerating the charset");
-    return EXIT_FAILURE;
-  }
-  to_chars((uint8_t *)password, account.length, chars, len);
-  fprintf(stdout, "%s\n", password);
+  utf8 chars = enumerate_charset(acc.characters);
+  to_chars(password, chars);
+  *password.eod = u8'\n';
+  ++password.eod;
+  print(((utf8){password.begin, password.eod}));
 
-  return EXIT_SUCCESS;
+  return 0;
 }
+
+#include "nonstd.c"

@@ -1,114 +1,150 @@
-//
-//   Copyright 2015 Darius Kellermann
-//
-//   Licensed under the Apache License, Version 2.0 (the "License");
-//   you may not use this file except in compliance with the License.
-//   You may obtain a copy of the License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the License is distributed on an "AS IS" BASIS,
-//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//   See the License for the specific language governing permissions and
-//   limitations under the License.
-//
+// This is free and unencumbered software released into the public domain.
 
 #include "padre.h"
 
-#include <argp.h>
-
-#include <stdlib.h>
-
 // Provides access to all command-line arguments that were parsed.
-struct cli_opts {
-  const char *domain_or_database;
-  const char *username;
-  const char *iteration;
-  const char *characters;
-  size_t length;
-};
+typedef struct {
+  account acc;
+} cli_opts;
 
-static error_t parse_opt(const int key, char *arg, struct argp_state *state) {
-  int tmp;
-
-  struct cli_opts *options = state->input;
-
-  switch (key) {
-  case 'c':
-    options->characters = arg;
-    break;
-  case 'l':
-    tmp = atoi(arg);
-    if (tmp == 0 || tmp < 0) {
-      fputs("Error: the length of the derived password may not be negative or"
-            " zero\n",
-            stderr);
-      return EINVAL;
-    }
-    options->length = (unsigned)tmp;
-    break;
-  case 'i':
-    options->iteration = arg;
-    break;
-
-  case ARGP_KEY_ARG:
-    switch (state->arg_num) {
-    case 0:
-      options->domain_or_database = arg;
-      break;
-    case 1:
-      options->username = arg;
-      break;
-    default:
-      fputs("Error: too many arguments\n", stderr);
-      argp_usage(state); // exits
-    }
-    break;
-
-  case ARGP_KEY_END:
-    if (state->arg_num < 1) {
-      fputs("Error: missing required argument(s)\n", stderr);
-      argp_usage(state); // exits
-    }
-    break;
-
-  default:
-    return ARGP_ERR_UNKNOWN;
-  }
-
-  return 0;
+void print_usage(void) {
+  println("usage: padre <domain> <username> [OPTIONS...]");
 }
 
-static struct argp_option cli_options[] = {
-    {"length", 'l', "64", 0, "Length of the generated password.", 0},
-    {"iter", 'i', "0", 0, "Password iteration number.", 0},
-    {"chars", 'c', ":graph:", 0,
-     "List of characters or the name of a POSIX character class to use in"
-     " the generated password (regexp notation).",
-     0},
-    {nullptr}};
+void print_help(void) {
+  println("\n"
+"Derives a deterministic password from <domain> and <username> and a master \n"
+"password. Optionally a password iteration number may be given to generate  \n"
+"new passwords for a combination of domain and username.                    \n"
+"                                                                           \n"
+"Instead of passing domain and username as arguments, a CSV entry can be    \n"
+"piped into the standard input by giving the padre command only a dash.     \n"
+"The entry must be structured as follows.                                   \n"
+"    <domain>,<username>,<iteration>,<length>,<characters>                  \n"
+"                                                                           \n"
+"  -c, --chars=:graph:     List of characters or the name of a POSIX        \n"
+"                          character class to use in the generated password \n"
+"                          (regexp notation).                               \n"
+"  -i, --iter=0            Password iteration number.                       \n"
+"  -l, --length=64         Length of the generated password.                \n"
+"  -h, --help              Give this help list and exit.                    \n"
+"  -v, --version           Print version and exit.                          \n"
+  );
+}
 
-static struct argp cli_parser = {
-    cli_options,
-    &parse_opt,
-    "<domain> <username>\n<database>",
-    "Derives a deterministic password from <domain> and <username> and a"
-    " master password. Optionally a password iteration number may be given to"
-    " generate new passwords for a combination of domain and username.\n"
-    "\n"
-    "Instead of giving domain and username, the path to a CSV file can be"
-    " given as first argument. If a dash is given, the file is read from"
-    " the standard input. The file must be structured as follows.\n"
-    "    <domain>,<username>,<iteration>,<length>,<characters>",
-    nullptr,
-    nullptr,
-    nullptr};
+void print_version(void) {
+  println("padre v0.3");
+}
 
-static struct cli_opts cli_parse(const int argc, char *argv[]) {
-  struct cli_opts options = {nullptr, nullptr, nullptr, nullptr, 0};
+utf8 next_arg(u8 ***pargv) {
+  if (!**pargv)
+    return (utf8){};
+  utf8 arg = to_utf8(**pargv);
+  *pargv = *pargv + 1;
+  return arg;
+}
 
-  argp_parse(&cli_parser, argc, argv, 0, 0, &options);
+void cli_help(void) {
+  print_usage();
+  print_help();
+  exit_with_failure();
+}
+
+void cli_version(void) {
+  print_version();
+  exit_with_failure();
+}
+
+void cli_unknown_option(utf8 /*arg*/) {
+  println("error: unknown option");
+  print_usage();
+  exit_with_failure();
+}
+
+void cli_set_option_s(utf8 *store, u8 ***pargv) {
+  utf8 arg = next_arg(pargv);
+  if (utf8_empty(arg)) {
+    println("error: missing argument to option");
+    exit_with_failure();
+  }
+  *store = arg;
+}
+
+void cli_set_option_i32(i32 *store, u8 ***pargv) {
+  utf8 arg = next_arg(pargv);
+  if (utf8_empty(arg)) {
+    println("error: missing argument to option");
+    exit_with_failure();
+  }
+  if (!scan_i32(&arg, store)) {
+    println("error: invalid argument to option");
+    exit_with_failure();
+  }
+}
+
+#define cli_set_option(store, pargv) (                                        \
+  _Generic((*store),                                                          \
+    utf8: cli_set_option_s,                                                   \
+    i32: cli_set_option_i32                                                   \
+  )((store), (pargv)))
+
+void cli_positional(cli_opts *options, utf8 arg) {
+  if (!options->acc.domain.begin) {
+    options->acc.domain = arg;
+  } else if (!options->acc.username.begin) {
+    options->acc.username = arg;
+  } else {
+    println("error: too many arguments");
+    print_usage();
+    exit_with_failure();
+  }
+}
+
+cli_opts cli_parse(u8 *argv[], u8 */*envp*/[]) {
+  cli_opts options = {};
+
+  for (utf8 arg = next_arg(&argv); arg.begin; arg = next_arg(&argv)) {
+    if (utf8_startswith(arg, utf8("--"))) { // long
+      arg.begin += 2; // skip dashes
+      if (utf8_eq(arg, utf8("help"))) {
+        cli_help();
+      } else if (utf8_eq(arg, utf8("version"))) {
+        cli_version();
+      } else if (utf8_eq(arg, utf8("chars"))) {
+        cli_set_option(&options.acc.characters, &argv);
+      } else if (utf8_eq(arg, utf8("iter"))) {
+        cli_set_option(&options.acc.iteration, &argv);
+      } else if (utf8_eq(arg, utf8("length"))) {
+        cli_set_option(&options.acc.length, &argv);
+      } else {
+        cli_unknown_option(arg);
+      }
+    } else if (utf8_startswith(arg, utf8("-"))) { // short
+      ++arg.begin; // skip dash
+      if (utf8_empty(arg)) {
+        cli_positional(&options, utf8("-"));
+      } else for (u32 c; (c = utf8_nextch(&arg)); ) {
+        switch (c) {
+          case 'h':  cli_help();                                      break;
+          case 'v':  cli_version();                                   break;
+          case 'c':  cli_set_option(&options.acc.characters, &argv);  break;
+          case 'i':  cli_set_option(&options.acc.iteration, &argv);   break;
+          case 'l':  cli_set_option(&options.acc.length, &argv);      break;
+          default:   cli_unknown_option(arg);                         break;
+        }
+      }
+    } else {
+      cli_positional(&options, arg);
+    }
+  }
+
+  if (utf8_empty(options.acc.domain)
+      || (!utf8_eq(options.acc.domain, utf8("-"))
+          && utf8_empty(options.acc.username))) {
+    println("error: not enough arguments");
+    print_usage();
+    exit_with_failure();
+  }
 
   return options;
 }

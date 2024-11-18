@@ -1,120 +1,31 @@
-//
-//   Copyright 2024 Darius Kellermann
-//
-//   Licensed under the Apache License, Version 2.0 (the "License");
-//   you may not use this file except in compliance with the License.
-//   You may obtain a copy of the License at
-//
-//       http://www.apache.org/licenses/LICENSE-2.0
-//
-//   Unless required by applicable law or agreed to in writing, software
-//   distributed under the License is distributed on an "AS IS" BASIS,
-//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//   See the License for the specific language governing permissions and
-//   limitations under the License.
-//
+// This is free and unencumbered software released into the public domain.
 
-#include "padre.h"
+#include "nonstd.h"
 
-#include <curses.h>
-#include <menu.h>
-
-#include <stdlib.h>
-#include <unistd.h>
-
-struct tui_item {
-  const char *name;
-  char description[256];
-};
-
-static int tui__wait_user_selection(MENU *menu) {
-  for (int c; (c = getch()) != 'q'; refresh()) {
-    switch (c) {
-    case KEY_DOWN:
-      menu_driver(menu, REQ_DOWN_ITEM);
-      break;
-    case KEY_UP:
-      menu_driver(menu, REQ_UP_ITEM);
-      break;
-    case '\n':
-      return item_index(current_item(menu));
-    default:
-      break;
-    }
-  }
-  return -1;
+void tui_set_invisible_mode(int fd) {
+  print_to_file(utf8("\033[8m"), fd);
 }
 
-static int tui_show_menu(const size_t num_items,
-                         const struct tui_item items[static num_items]) {
-  initscr();
-  cbreak(); // get characters immediately, don't cache until line break
-  noecho();
-  keypad(stdscr, TRUE);
-
-  ITEM **nc_items = malloc((num_items + 1) * sizeof(ITEM *));
-
-  for (size_t i = 0; i < num_items; ++i) {
-    nc_items[i] = new_item(items[i].name, items[i].description);
-  }
-  nc_items[num_items] = nullptr;
-
-  attron(A_REVERSE);
-  mvprintw(
-      LINES - 2, 0,
-      "Press [q] to quit or [ENTER] to select. Showing %d out of %zu items.",
-      LINES - 2, num_items);
-  attroff(A_REVERSE);
-  mvprintw(LINES - 1, 0, "Type to search: not yet implemented :-(");
-
-  MENU *menu = new_menu(nc_items);
-  set_menu_format(menu, LINES - 3, 1);
-  const int ret = post_menu(menu);
-  if (ret != E_OK) {
-    fprintf(stderr, "Error trying to show ncurses menu: %d\n", ret);
-    endwin();
-    return -1;
-  }
-  refresh();
-
-  const int selected_item = tui__wait_user_selection(menu);
-
-  for (size_t i = 0; i < num_items; ++i) {
-    free_item(nc_items[i]);
-  }
-  free_menu(menu);
-  endwin();
-  free(nc_items);
-
-  return selected_item;
+void tui_reset_invisible_mode(int fd) {
+  print_to_file(utf8("\033[28m"), fd);
 }
 
-// Asks the user for his master password, stores it in `passwd` and updates the
-// length in `len`.
-//   len — The length of the buffer resp. the length of the read password
-//         string not including the terminating null byte.
+void tui_erase_previous_line(int fd) {
+  print_to_file(utf8("\033[1A\033[2K" "Password entered." "\033[1B\r"), fd);
+}
+
+// Asks the user for his master password and stores it in `passwd`.
 // Returns 0 on success; -1 in case of a failure.
-static int tui_ask_password(char *passwd, size_t *len) {
-  filter(); // only affect the current line
-  initscr();
-  cbreak(); // don't cache the characters
-  noecho(); // don't print the password
-  keypad(stdscr, TRUE);
+void tui_ask_password(buf8 *passwd) {
+  int tty_fd = open_file(utf8("/dev/tty"), 2);
+  print_to_file(utf8("Enter the master password: "), tty_fd);
 
-  printw("Enter the master password: ");
-
-  size_t curr_len = 0;
-  int c;
-  for (; (c = getch()) != EOF && c != '\n' && curr_len < *len; ++curr_len) {
-    passwd[curr_len] = (char)c;
+  tui_set_invisible_mode(tty_fd);
+  while (scan_from_file(passwd, tty_fd) > 0 && *(passwd->eod - 1) != '\n') {
   }
-  passwd[curr_len] = '\0';
+  tui_reset_invisible_mode(tty_fd);
+  tui_erase_previous_line(tty_fd);
 
-  *len = curr_len;
-
-  endwin();
-
-  if (c == EOF)
-    return -1;
-  return 0;
+  // remove the newline from the password
+  --passwd->eod;
 }
