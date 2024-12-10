@@ -27,6 +27,7 @@
  * online backup system.
  */
 
+#include "sha256.c"
 #include "nonstd.h"
 
 // stuff from libcperciva/alg/sha256.[ch]
@@ -754,7 +755,12 @@ crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
 #endif
 
 	/* 1: (B_0 ... B_{p-1}) <-- PBKDF2(P, S, 1, p * MFLen) */
+#if 1
 	PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, 1, B, p * 128 * r);
+#else
+	buf8 tbuf = (buf8){B, B, B + (p * 128 * r) / 8};
+	pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){salt, salt + saltlen}, 1, &tbuf);
+#endif
 
 	/* 2: for i = 0 to p - 1 do */
 	for (i = 0; i < p; i++) {
@@ -763,7 +769,12 @@ crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
 	}
 
 	/* 5: DK <-- PBKDF2(P, B, 1, dkLen) */
+#if 1
 	PBKDF2_SHA256(passwd, passwdlen, B, p * 128 * r, 1, buf, buflen);
+#else
+	tbuf = (buf8){buf, buf, buf + buflen};
+	pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){B, B + (p * 128 * r) / 8}, 1, &tbuf);
+#endif
 
 	/* Free memory. */
 #if defined(MAP_ANON) && defined(HAVE_MMAP)

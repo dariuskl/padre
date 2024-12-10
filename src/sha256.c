@@ -8,35 +8,27 @@
 
 #include "nonstd.h"
 
-#define ror(value, bits) (((value) >> (bits)) | ((value) << (32 - (bits))))
+static inline void put_unaligned_be_u32(byte vec[static 4], u32 val) {
+  vec[0] = (byte)(val >> 24);
+  vec[1] = (val >> 16) & 0xff;
+  vec[2] = (val >>  8) & 0xff;
+  vec[3] =  val        & 0xff;
+}
 
-#define put_unaligned_u32(x, vec)                                             \
-  do {                                                                        \
-    (vec)[0] = (u8)(((x) >> 24) & 255);                                       \
-    (vec)[1] = (u8)(((x) >> 16) & 255);                                       \
-    (vec)[2] = (u8)(((x) >> 8) & 255);                                        \
-    (vec)[3] = (u8)((x) & 255);                                               \
-  } while (0)
+static inline u32 get_unaligned_be_u32(const byte vec[static 4]) {
+  return vec[0] << 24 | vec[1] << 16 | vec[2] << 8 | vec[3];
+}
 
-#define get_unaligned_u32(x, vec)                                             \
-  do {                                                                        \
-    x = ((u32)((vec)[0] & 255) << 24)                                         \
-        | ((u32)((vec)[1] & 255) << 16)                                       \
-        | ((u32)((vec)[2] & 255) << 8)                                        \
-        | ((u32)((vec)[3] & 255));                                            \
-  } while (0)
-
-#define put_unaligned_u64(x, vec)                                             \
-  do {                                                                        \
-    (vec)[0] = (u8)(((x) >> 56) & 255);                                       \
-    (vec)[1] = (u8)(((x) >> 48) & 255);                                       \
-    (vec)[2] = (u8)(((x) >> 40) & 255);                                       \
-    (vec)[3] = (u8)(((x) >> 32) & 255);                                       \
-    (vec)[4] = (u8)(((x) >> 24) & 255);                                       \
-    (vec)[5] = (u8)(((x) >> 16) & 255);                                       \
-    (vec)[6] = (u8)(((x) >> 8) & 255);                                        \
-    (vec)[7] = (u8)((x) & 255);                                               \
-  } while (0)
+static inline void put_unaligned_be_u64(byte vec[static 8], u64 val) {
+  vec[0] = (byte)(val >> 56);
+  vec[1] = (val >> 48) & 0xff;
+  vec[2] = (val >> 40) & 0xff;
+  vec[3] = (val >> 32) & 0xff;
+  vec[4] = (val >> 24) & 0xff;
+  vec[5] = (val >> 16) & 0xff;
+  vec[6] = (val >>  8) & 0xff;
+  vec[7] =  val        & 0xff;
+}
 
 // The K array, SHA256 round constants
 static const u32 K[64] = {
@@ -61,6 +53,7 @@ static const u32 K[64] = {
 #define SHA256_BLOCK_SIZE          64
 
 // various logical functions
+#define ror(value, bits) (((value) >> (bits)) | ((value) << (32 - (bits))))
 #define Ch(x, y, z)       ((x & (y ^ z)) ^ z)
 #define Maj(x, y, z)      (((x | y) & z) | (x & y))
 #define S(x, n)           ror((x), (n))
@@ -98,7 +91,7 @@ void sha256_transform(sha256_context* ctx, const u8* buffer) {
 
   // copy the state into 512-bits into W[0..15]
   for (int i = 0; i < 16; ++i) {
-    get_unaligned_u32(W[i], buffer + (4 * i));
+    W[i] = get_unaligned_be_u32(buffer + (4 * i));
   }
 
   // fill W[16..63]
@@ -163,7 +156,7 @@ void sha256_update(sha256_context* ctx, const u8* buffer, size buffer_size) {
       buffer = (u8 *)buffer + n;
       buffer_size -= n;
       if (ctx->curlen == SHA256_BLOCK_SIZE) {
-        sha256_transform( ctx, ctx->buf );
+        sha256_transform(ctx, ctx->buf);
         ctx->length += 8 * SHA256_BLOCK_SIZE;
         ctx->curlen = 0;
       }
@@ -207,12 +200,12 @@ void sha256_finalize(sha256_context* ctx, sha256_hash* digest) {
   }
 
   // store length
-  put_unaligned_u64(ctx->length, ctx->buf + 56);
+  put_unaligned_be_u64(ctx->buf + 56, (u64)ctx->length);
   sha256_transform(ctx, ctx->buf);
 
   // copy output
   for (int i = 0; i < 8; ++i) {
-    put_unaligned_u32(ctx->state[i], digest->bytes + (4 * i));
+    put_unaligned_be_u32(digest->bytes + (4 * i), ctx->state[i]);
   }
 }
 
@@ -307,8 +300,8 @@ void pbkdf2_sha256(utf8 password, view8 salt, size cost, buf8 *out) {
     sha256_hash block_hash = hmac_sha256_finalize(&block_ctx);
 
     // init final block with initial hash
-    copy(block, block + size_of(block),
-         block_hash.bytes, block_hash.bytes + size_of(block_hash.bytes));
+    copy(block_hash.bytes, block_hash.bytes + size_of(block_hash.bytes),
+         block, block + size_of(block));
 
     for (int j = 2; j <= cost; ++j) {
       // update unsalted context with block data

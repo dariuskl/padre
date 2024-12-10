@@ -3,9 +3,8 @@ CFLAGS += -Werror -pedantic-errors
 CFLAGS += -Wconversion -Wsign-conversion
 CFLAGS += -Wno-unused-function
 CFLAGS += -std=c23 -nostdlib -fno-stack-protector -fwhole-program
-#CFLAGS += -fanalyzer
 CFLAGS += -fno-tree-loop-distribute-patterns  # don't emit calls to memset etc.
-CFLAGS += -O2
+CFLAGS += -O2 -fanalyzer
 #CFLAGS += -Og -g
 
 .PHONY: all clean test
