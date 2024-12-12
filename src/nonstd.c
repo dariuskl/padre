@@ -9,7 +9,7 @@
   #error "unsupported"
 #endif
 
-static size print_int(long long num, int base) {
+static size print_int(long long num, int base, int field_width, u8 filler) {
   static u8 chars[] = "0123456789abcdef";
 
   if (base < 2 || base > 16)
@@ -19,28 +19,41 @@ static size print_int(long long num, int base) {
   buf8 buf = buf8(buf_);
   buf.eod = buf.begin + 16;
 
-  num = num < 0 ? -num : num;
-
-  for (; num > 0; num /= base) {
+  if (num == 0) {
     --buf.eod;
-    *buf.eod = chars[num % base];
+    *buf.eod = '0';
+  } else {
+    long long absv = num < 0 ? -num : num;
+
+    for (; absv > 0; absv /= base) {
+      --buf.eod;
+      *buf.eod = chars[absv % base];
+    }
+
+    if (num < 0) {
+      --buf.eod;
+      *buf.eod = '-';
+    }
   }
 
-  if (num < 0) {
+  while (buf.eod > buf.end - field_width) {
     --buf.eod;
-    *buf.eod = '-';
-    num = -num;
+    *buf.eod = filler;
   }
 
   return print(((utf8){buf.eod, buf.end}));
 }
 
 size print_i32(i32 num) {
-  return print_int(num, 10);
+  return print_int(num, 10, 0, u8'0');
+}
+
+size print_u8(u8 num) {
+  return print_int(num, 16, 2, u8'0');
 }
 
 size print_ptr(const void *ptr) {
-  return print_int((long long)(uptr)ptr, 16);
+  return print_int((long long)(uptr)ptr, 16, 0, u8'0');
 }
 
 bool scan_i32(utf8 *buf, i32 *num) {

@@ -47,22 +47,19 @@ typedef __SIZE_TYPE__    usize;  // for compatibility with size_t
 
 // memory operations
 
-static inline byte *copy_b(const byte *src_begin, const byte *src_end,
-                           byte *dst_begin, const byte *dst_end) {
-  for (; src_begin != src_end && dst_begin != dst_end;
-       ++src_begin, ++dst_begin) {
-    *dst_begin = *src_begin;
+static inline void *copy_b(const void *src_begin, const void *src_end,
+                           void *dst_begin, const void *dst_end) {
+  const byte *src_it = src_begin;
+  byte *dst_it = dst_begin;
+  for (; src_it != src_end && dst_it != dst_end; ++src_it, ++dst_it) {
+    *dst_it = *src_it;
   }
-  return dst_begin;
+  return dst_it;
 }
 
-#define copy(src_begin, src_end, dst_begin, dst_end)                          \
-  copy_b((const byte *)(src_begin), (const byte *)(src_end),                  \
-         (byte *)(dst_begin), (const byte *)(dst_end))
-
 #define memcpy(dest, src, count)                                              \
-  copy((src), (const byte *)(src) + (count),                                  \
-       (dest), (const byte *)(dest) + (count))
+  copy_b((src), (const byte *)(src) + (count),                                \
+         (dest), (const byte *)(dest) + (count))
 
 static inline void fill(byte *begin, const byte *end, byte v) {
   for (; begin != end; ++begin)
@@ -337,6 +334,7 @@ size write_to_file(int fd, const byte *begin, const byte *end);
 
 size print_to_file(utf8 text, int fd);
 size print_i32(i32 num);
+size print_u8(u8 num);
 size print_ptr(const void *ptr);
 
 // print to stdout

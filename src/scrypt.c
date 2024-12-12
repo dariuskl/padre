@@ -491,9 +491,7 @@ static void (*smix_func)(u8 *, usize, u64, void *, void *) = 0;
 static void
 blkcpy(u32 * dest, const u32 * src, usize len)
 {
-
-	copy((const byte *)src, (const byte *)(src + len),
-         (byte *)dest, (const byte *)dest + len);
+	copy_b(src, (const byte *)src + len, dest, (const byte *)dest + len);
 }
 
 static void
@@ -758,14 +756,14 @@ crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
 #if 1
 	PBKDF2_SHA256(passwd, passwdlen, salt, saltlen, 1, B, p * 128 * r);
 #else
-	buf8 tbuf = (buf8){B, B, B + (p * 128 * r) / 8};
+	buf8 tbuf = (buf8){B, B, B + p * 128 * r};
 	pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){salt, salt + saltlen}, 1, &tbuf);
 #endif
 
 	/* 2: for i = 0 to p - 1 do */
 	for (i = 0; i < p; i++) {
 		/* 3: B_i <-- MF(B_i, N) */
-		(smix)(&B[i * 128 * r], r, N, V, XY);
+		smix(&B[i * 128 * r], r, N, V, XY);
 	}
 
 	/* 5: DK <-- PBKDF2(P, B, 1, dkLen) */
@@ -773,7 +771,7 @@ crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
 	PBKDF2_SHA256(passwd, passwdlen, B, p * 128 * r, 1, buf, buflen);
 #else
 	tbuf = (buf8){buf, buf, buf + buflen};
-	pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){B, B + (p * 128 * r) / 8}, 1, &tbuf);
+	pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){B, B + p * 128 * r}, 1, &tbuf);
 #endif
 
 	/* Free memory. */

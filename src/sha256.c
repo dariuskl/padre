@@ -300,8 +300,8 @@ void pbkdf2_sha256(utf8 password, view8 salt, size cost, buf8 *out) {
     sha256_hash block_hash = hmac_sha256_finalize(&block_ctx);
 
     // init final block with initial hash
-    copy(block_hash.bytes, block_hash.bytes + size_of(block_hash.bytes),
-         block, block + size_of(block));
+    copy_b(block_hash.bytes, block_hash.bytes + size_of(block_hash.bytes),
+           block, block + size_of(block));
 
     for (int j = 2; j <= cost; ++j) {
       // update unsalted context with block data
@@ -317,8 +317,8 @@ void pbkdf2_sha256(utf8 password, view8 salt, size cost, buf8 *out) {
     }
 
     size remaining_bytes = buf8_capacity(*out) - i * 32;
-    copy(block, block + min(remaining_bytes, size_of(block)),
-         &out->begin[i * 32], out->end);
+    size bytes_to_copy = min(remaining_bytes, size_of(block));
+    out->eod = copy_b(block, block + bytes_to_copy, out->eod, out->end);
   }
 }
 

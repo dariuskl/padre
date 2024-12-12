@@ -17,9 +17,9 @@ int derive_password(utf8 master_password, utf8 domain, utf8 username,
   salt.eod = salt.begin;
   salt.end = salt.begin + salt_len + 1;
 
-  salt.eod = copy(domain.begin, domain.end, salt.eod, salt.end);
-  salt.eod = copy(username.begin, username.end, salt.eod, salt.end);
-  salt.eod = copy(passno.begin, passno.end, salt.eod, salt.end);
+  salt.eod = copy_b(domain.begin, domain.end, salt.eod, salt.end);
+  salt.eod = copy_b(username.begin, username.end, salt.eod, salt.end);
+  salt.eod = copy_b(passno.begin, passno.end, salt.eod, salt.end);
 
   int ret = crypto_scrypt(master_password.begin, utf8_len(master_password),
                           salt.begin, salt_len, MP_N, MP_r, MP_p, buf->eod,
