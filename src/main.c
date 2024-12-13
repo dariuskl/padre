@@ -95,18 +95,18 @@ i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
 
   if (utf8_empty(acc.domain) || utf8_empty(acc.username)
       || utf8_empty(acc.iteration) || utf8_empty(acc.characters)
-      || length <= 0 || length > MAX_INPUT_SIZE) {
+      || length <= 0 || length > MAX_PASSWORD_LENGTH) {
     println("error: invalid arguments");
     exit_with_failure();
   }
 
-  // ask the user for his master password    | no program exit between here ...
-  buf8 master_pwd = arena_push(&a, MAX_MASTER_PASSWORD_LENGTH);
-  tui_ask_password(&master_pwd);
-
   // allocate a buffer for the generated password
   // one char extra for the line terminator
   buf8 password = arena_push(&a, length + 1);
+
+  // ask the user for his master password    | no program exit between here ...
+  buf8 master_pwd = arena_push(&a, MAX_MASTER_PASSWORD_LENGTH);
+  tui_ask_password(&master_pwd);
 
   int ret = derive_password(&a, (utf8){master_pwd.begin, master_pwd.eod},
                             acc.domain, acc.username, acc.iteration,

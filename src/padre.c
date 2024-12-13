@@ -8,8 +8,10 @@
 int derive_password(arena *a, utf8 master_password, utf8 domain, utf8 username,
                     utf8 passno, buf8 *password) {
   size salt_len = utf8_len(domain) + utf8_len(username) + utf8_len(passno);
+  buf8 salt = arena_try_push(a, salt_len);
+  if (salt.begin == 0)
+    return -1;
 
-  buf8 salt = arena_push(a, salt_len);
   salt.eod = copy_b(domain.begin, domain.end, salt.eod, salt.end);
   salt.eod = copy_b(username.begin, username.end, salt.eod, salt.end);
   salt.eod = copy_b(passno.begin, passno.end, salt.eod, salt.end);

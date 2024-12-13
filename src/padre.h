@@ -9,12 +9,15 @@
 // anyone that can memorize a longer password does not need this utility.
 #define MAX_MASTER_PASSWORD_LENGTH  64
 
-// The length of what can be read from stdin. Will be allocated statically at
-//  program startup.
-#define MAX_INPUT_SIZE              1024
+// The limit for the generated password length. Anything above 128 characters
+// seems unreasonable.
+#define MAX_PASSWORD_LENGTH 128
 
 // These settings correspond with the defaults of the Python scrypt bindings.
 // ... for historical reasons ...
+// A good summary of what these numbers mean can be found here:
+//   https://words.filippo.io/the-scrypt-parameters/
+// In particular, you might want to consider doubling N nowadays.
 #define MP_N 16384
 #define MP_r 8
 #define MP_p 1
