@@ -40,35 +40,40 @@ account csv_parse_account(utf8 str) {
   return acc;
 }
 
-u8 input_buffer[MAX_INPUT_SIZE];
-
-utf8 read_stdin(void) {
-  buf8 buf = buf8(input_buffer);
-  while (scan(&buf) > 0) {
+utf8 read_stdin(buf8 *buf) {
+  utf8 str = {buf->eod, buf->eod};
+  while (scan(buf) > 0) {
   }
-  return (utf8){buf.begin, buf.eod};
+  str.end = buf->eod;
+  return str;
 }
 
-account determine_account(const cli_opts options) {
+account determine_account(buf8 *buf, const cli_opts options) {
   if (utf8_eq(options.acc.domain, utf8("-"))
       && utf8_empty(options.acc.username)) {
     // read account from stdin
-    utf8 buf = utf8_trim(read_stdin());
+    utf8 csv = utf8_trim(read_stdin(buf));
 
-    if (utf8_empty(buf)) {
+    if (utf8_empty(csv)) {
       println("error: nothing on stdin even though dash was given");
       exit_with_failure();
     }
 
-    return csv_parse_account(buf);
+    return csv_parse_account(csv);
   }
   // the account is specified on the command-line
   return options.acc;
 }
 
+// the backing for our arena
+static u8 static_backing[MAX_INPUT_SIZE];
+
 i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
+  // the central arena where all data is stored that is not on the stack
+  arena a = {buf8(static_backing)};
+
   cli_opts opts = cli_parse(argv, envp);
-  account acc = determine_account(opts);
+  account acc = determine_account(&a.buf, opts);
 
   if (utf8_empty(acc.iteration)) {
     acc.iteration = utf8("0");
@@ -93,33 +98,40 @@ i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
     exit_with_failure();
   }
 
-  buf8 password = buf8(input_buffer);
-
   // ask the user for his master password    | no program exit between here ...
-  u8 mp_buf[MAX_MASTER_PASSWORD_LENGTH];
-  buf8 master_pwd = buf8(mp_buf);
+  buf8 master_pwd = arena_push(&a, MAX_MASTER_PASSWORD_LENGTH);
   tui_ask_password(&master_pwd);
 
-  int ret = derive_password((utf8){master_pwd.begin, master_pwd.eod},
-                            acc.domain, acc.username, acc.iteration,
-                            &password, length);
+  // allocate a buffer for the generated password
+  // one char extra for the line terminator
+  buf8 password = arena_push(&a, length + 1);
 
+  int ret = derive_password(&a, (utf8){master_pwd.begin, master_pwd.eod},
+                            acc.domain, acc.username, acc.iteration,
+                            &password);
+  password.eod = password.begin + length;
+
+  // clear the master password asap
   clear_s(master_pwd.begin, master_pwd.eod);
   master_pwd.eod = master_pwd.begin;
-  // clear the master password               | ... and here
 
   if (ret != 0) {
     println("error deriving the domain password");
-    exit_with_failure();
+    ret = 1;
+  } else {
+    utf8 chars = enumerate_charset(acc.characters);
+    to_chars(password, chars);
+    *password.eod = u8'\n';
+    ++password.eod;
+    print(((utf8){password.begin, password.eod}));
   }
 
-  utf8 chars = enumerate_charset(acc.characters);
-  to_chars(password, chars);
-  *password.eod = u8'\n';
-  ++password.eod;
-  print(((utf8){password.begin, password.eod}));
+  // clear the whole arena
+  clear_s(a.buf.begin, a.buf.end);
 
-  return 0;
+  //                                         | ... and here
+
+  return ret;
 }
 
 #include "nonstd.c"

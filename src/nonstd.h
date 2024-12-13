@@ -152,7 +152,7 @@ static inline bool utf8_eq(utf8 lhs, utf8 rhs) {
   return true;
 }
 
-static inline bool utf8_is_ascii_digit(char c) {
+static inline bool utf8_is_ascii_digit(u32 c) {
   return c >= '0' && c <= '9';
 }
 
@@ -324,6 +324,7 @@ static inline view8 utf8_to_view(utf8 s) {
 
 // File I/O (OPTIONAL)
 
+// mode: 0 - read-only,
 int open_file(utf8 filename, int mode);
 void close_file(int fd);
 size get_file_size(int fd);
@@ -373,24 +374,26 @@ __attribute__((malloc))
 byte *os_allocate(size n_bytes);
 
 typedef struct {
-  byte *begin;
-  byte *end;
+  buf8 buf;
 } arena;
 
 static inline arena new_arena(size n_bytes) {
   byte *ptr = os_allocate(n_bytes);
-  return (arena){ptr, ptr + n_bytes};
+  return (arena){{ptr, ptr, ptr + n_bytes}};
 }
 
-__attribute__((malloc))
-static inline void *allocate(arena *a, int num_objs, size obj_size) {
-  const size available = a->end - a->begin;
-  if (available < 0 || num_objs > available / obj_size)
+// Stack-like allocator. Pushes by the given number of bytes and returns a
+// buffer of the allocated data.
+static inline buf8 arena_push(arena *a, size n_bytes) {
+  const size available = buf8_capacity(a->buf);
+  if (available < n_bytes)
     exit_with_failure();
-  void *p = a->begin;
-  a->begin += num_objs * obj_size;
-  return p;
+  u8 *p = a->buf.eod;
+  a->buf.eod += n_bytes;
+  return (buf8){p, p, a->buf.eod};
 }
+
+buf8 arena_push_aligned();
 
 #define new(a, n, t) ((t *)allocate(a, n, sizeof(t)))
 

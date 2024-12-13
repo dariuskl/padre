@@ -5,29 +5,17 @@
 
 #include "scrypt.c"
 
-int derive_password(utf8 master_password, utf8 domain, utf8 username,
-                    utf8 passno, buf8 *buf, size password_length) {
-  if (password_length > buf8_capacity(*buf))
-    return -1;
-
+int derive_password(arena *a, utf8 master_password, utf8 domain, utf8 username,
+                    utf8 passno, buf8 *password) {
   size salt_len = utf8_len(domain) + utf8_len(username) + utf8_len(passno);
 
-  buf8 salt;
-  salt.begin = os_allocate(salt_len);
-  salt.eod = salt.begin;
-  salt.end = salt.begin + salt_len + 1;
-
+  buf8 salt = arena_push(a, salt_len);
   salt.eod = copy_b(domain.begin, domain.end, salt.eod, salt.end);
   salt.eod = copy_b(username.begin, username.end, salt.eod, salt.end);
   salt.eod = copy_b(passno.begin, passno.end, salt.eod, salt.end);
 
-  int ret = crypto_scrypt(master_password.begin, utf8_len(master_password),
-                          salt.begin, salt_len, MP_N, MP_r, MP_p, buf->eod,
-                          password_length);
-
-  buf->eod += password_length;
-
-  return ret;
+  return scrypt(a, master_password.begin, utf8_len(master_password),
+                salt.begin, salt_len, MP_N, MP_r, MP_p, password);
 }
 
 // converts the bytes that the password derivator spits out

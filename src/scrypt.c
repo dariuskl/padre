@@ -261,13 +261,13 @@ crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
 	}
 
 	/* Allocate memory. */
-	if ((B0 = os_allocate((size)(128 * r * p + 63))) == 0) // TODO conversion
+	if ((B0 = os_allocate((size)(128 * r * p + 63))) == 0) // TODO alloc & conversion
 		goto err0;
 	B = (u8 *)(((uptr)(B0) + 63) & ~ (uptr)(63));
-	if ((XY0 = os_allocate((size)(256 * r + 64 + 63))) == 0) // TODO conversion
+	if ((XY0 = os_allocate((size)(256 * r + 64 + 63))) == 0) // TODO alloc & conversion
 		goto err1;
 	XY = (u32 *)(((uptr)(XY0) + 63) & ~ (uptr)(63));
-	if ((V0 = os_allocate((size)(128 * r * N + 63))) == 0) // TODO conversion
+	if ((V0 = os_allocate((size)(128 * r * N + 63))) == 0) // TODO alloc & conversion
 		goto err2;
 	V = (u32 *)(((uptr)(V0) + 63) & ~ (uptr)(63));
 
@@ -344,7 +344,6 @@ static int testsmix(void (*smix)(u8 *, usize, u64, void *, void *))
 }
 
 /**
- * crypto_scrypt(passwd, passwdlen, salt, saltlen, N, r, p, buf, buflen):
  * Compute scrypt(passwd[0 ... passwdlen - 1], salt[0 ... saltlen - 1], N, r,
  * p, buflen) and write the result into buf.  The parameters r, p, and buflen
  * must satisfy 0 < r * p < 2^30 and buflen <= (2^32 - 1) * 32.  The parameter
@@ -352,19 +351,22 @@ static int testsmix(void (*smix)(u8 *, usize, u64, void *, void *))
  *
  * Return 0 on success; or -1 on error.
  */
-int crypto_scrypt(const u8 *passwd, size passwdlen,
-                  const u8 *salt, size saltlen,
-                  u64 N, u32 _r, u32 _p,
-                  u8 *buf, size buflen)
+int scrypt(arena *a, const u8 *passwd, size passwdlen,
+           const u8 *salt, size saltlen,
+           u64 N, u32 _r, u32 _p,
+           buf8 *password)
 {
+	(void)a;
   // Ensure generic smix works.
   if (!testsmix(crypto_scrypt_smix)) {
     smix_func = crypto_scrypt_smix;
     return crypto_scrypt_internal(passwd, (usize)passwdlen,
                                   salt, (usize)saltlen, N, _r, _p,
-                                  buf, (usize)buflen, smix_func);
+                                  password->eod,
+                                  (usize)buf8_capacity(*password),
+                                  smix_func);
   }
 
-  print(utf8("fatal: cannot derive passwords - scrypt smix failed test"));
-  exit_with_failure();
+  print(utf8("error: cannot derive passwords - scrypt smix failed test"));
+  return -1;
 }
