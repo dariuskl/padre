@@ -65,8 +65,10 @@ account determine_account(buf8 *buf, const cli_opts options) {
   return options.acc;
 }
 
-// the backing for our arena
-static u8 static_backing[MAX_INPUT_SIZE];
+// the backing for our arena, 1024 bytes for us, rest for scrypt
+static u8 static_backing[1024 + MP_N * 2 * MP_r * 64 + 32 * 1024];
+//                              ^~~~~~~~~~~~~~~~~~~~   ^~~~~~~~~
+//                               scrypt must-have       overhead
 
 i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
   // the central arena where all data is stored that is not on the stack

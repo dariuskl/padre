@@ -225,7 +225,7 @@ crypto_scrypt_smix(u8 * B, usize r, u64 N, void * _v, void * XY)
  * Perform the requested scrypt computation, using ${smix} as the smix routine.
  */
 static int
-crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
+crypto_scrypt_internal(arena *a, const u8 * passwd, usize passwdlen,
     const u8 * salt, usize saltlen, u64 N, u32 _r, u32 _p,
     u8 * buf, usize buflen,
     void (*smix)(u8 *, usize, u64, void *, void *))
@@ -239,36 +239,36 @@ crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
 
 	/* Sanity-check parameters. */
 	if ((r == 0) || (p == 0)) {
-		goto err0;
+		return -1;
 	}
 #if __SIZE_MAX__ > __UINT32_MAX__
 	if (buflen > (((u64)(1) << 32) - 1) * 32) {
-		goto err0;
+		return -1;
 	}
 #endif
 	if ((u64)(r) * (u64)(p) >= (1 << 30)) {
-		goto err0;
+		return -1;
 	}
 	if (((N & (N - 1)) != 0) || (N < 2)) {
-		goto err0;
+		return -1;
 	}
 	if ((r > __SIZE_MAX__ / 128 / p) ||
 #if __SIZE_MAX__ / 256 <= __UINT32_MAX__
 	    (r > (__SIZE_MAX__ - 64) / 256) ||
 #endif
 	    (N > __SIZE_MAX__ / 128 / r)) {
-		goto err0;
+		return -1;
 	}
 
 	/* Allocate memory. */
-	if ((B0 = os_allocate((size)(128 * r * p + 63))) == 0) // TODO alloc & conversion
-		goto err0;
+	if ((B0 = arena_try_push(a, (size)(128 * r * p + 63)).begin) == 0) // TODO conversion
+		return -1;
 	B = (u8 *)(((uptr)(B0) + 63) & ~ (uptr)(63));
-	if ((XY0 = os_allocate((size)(256 * r + 64 + 63))) == 0) // TODO alloc & conversion
-		goto err1;
+	if ((XY0 = arena_try_push(a, (size)(256 * r + 64 + 63)).begin) == 0) // TODO conversion
+		return -1;
 	XY = (u32 *)(((uptr)(XY0) + 63) & ~ (uptr)(63));
-	if ((V0 = os_allocate((size)(128 * r * N + 63))) == 0) // TODO alloc & conversion
-		goto err2;
+	if ((V0 = arena_try_push(a, (size)(128 * r * N + 63)).begin) == 0) // TODO conversion
+		return -1;
 	V = (u32 *)(((uptr)(V0) + 63) & ~ (uptr)(63));
 
 	/* 1: (B_0 ... B_{p-1}) <-- PBKDF2(P, S, 1, p * MFLen) */
@@ -285,21 +285,9 @@ crypto_scrypt_internal(const u8 * passwd, usize passwdlen,
 	tbuf = (buf8){buf, buf, buf + buflen};
 	pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){B, B + p * 128 * r}, 1, &tbuf);
 
-	/* Free memory. */
-	// free(V0); TODO
-	// free(XY0); TODO
-	// free(B0); TODO
+	// TODO consider popping the memory from the arena again
 
-	/* Success! */
 	return 0;
-
-err2:
-	// free(XY0); TODO
-err1:
-	// free(B0); TODO
-err0:
-	/* Failure! */
-	return -1;
 }
 
 #define TESTLEN 64
@@ -328,12 +316,12 @@ static struct scrypt_test {
 	}
 };
 
-static int testsmix(void (*smix)(u8 *, usize, u64, void *, void *))
+static int testsmix(arena *a, void (*smix)(u8 *, usize, u64, void *, void *))
 {
   u8 hbuf[TESTLEN];
 
   // Perform the computation.
-  if (crypto_scrypt_internal(
+  if (crypto_scrypt_internal(a,
       (const u8 *)testcase.passwd, (usize)ascii_length_of(testcase.passwd), // TODO conversion
       (const u8 *)testcase.salt, (usize)ascii_length_of(testcase.salt), // TODO conversion
       testcase.N, testcase.r, testcase.p, hbuf, TESTLEN, smix))
@@ -358,9 +346,9 @@ int scrypt(arena *a, const u8 *passwd, size passwdlen,
 {
 	(void)a;
   // Ensure generic smix works.
-  if (!testsmix(crypto_scrypt_smix)) {
+  if (!testsmix(a, crypto_scrypt_smix)) {
     smix_func = crypto_scrypt_smix;
-    return crypto_scrypt_internal(passwd, (usize)passwdlen,
+    return crypto_scrypt_internal(a, passwd, (usize)passwdlen,
                                   salt, (usize)saltlen, N, _r, _p,
                                   password->eod,
                                   (usize)buf8_capacity(*password),

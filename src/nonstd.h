@@ -238,6 +238,10 @@ static inline size buf8_used(buf8 b) {
   return b.eod - b.begin;
 }
 
+static inline size buf8_available(buf8 b) {
+  return b.end - b.eod;
+}
+
 static inline size buf8_capacity(buf8 b) {
   return b.end - b.begin;
 }
@@ -384,13 +388,23 @@ static inline arena new_arena(size n_bytes) {
 
 // Stack-like allocator. Pushes by the given number of bytes and returns a
 // buffer of the allocated data.
-static inline buf8 arena_push(arena *a, size n_bytes) {
-  const size available = buf8_capacity(a->buf);
+// Returns empty buffer on failure.
+static inline buf8 arena_try_push(arena *a, size n_bytes) {
+  const size available = buf8_available(a->buf);
   if (available < n_bytes)
-    exit_with_failure();
+    return (buf8){};
   u8 *p = a->buf.eod;
   a->buf.eod += n_bytes;
   return (buf8){p, p, a->buf.eod};
+}
+
+// See `arena_try_push`.
+// Exits on failure.
+static inline buf8 arena_push(arena *a, size n_bytes) {
+  buf8 ret = arena_try_push(a, n_bytes);
+  if (ret.begin == 0)
+    exit_with_failure();
+  return ret;
 }
 
 buf8 arena_push_aligned();
