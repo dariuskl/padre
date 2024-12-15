@@ -16,8 +16,8 @@ int derive_password(arena *a, utf8 master_password, utf8 domain, utf8 username,
   salt.eod = copy_b(username.begin, username.end, salt.eod, salt.end);
   salt.eod = copy_b(passno.begin, passno.end, salt.eod, salt.end);
 
-  return scrypt(a, master_password.begin, utf8_len(master_password),
-                salt.begin, salt_len, MP_N, MP_r, MP_p, password);
+  return scrypt(a, master_password, buf_to_view(salt), MP_N, MP_r, MP_p,
+                password);
 }
 
 // converts the bytes that the password derivator spits out

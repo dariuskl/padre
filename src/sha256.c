@@ -10,9 +10,9 @@
 
 static inline void put_unaligned_be_u32(byte vec[static 4], u32 val) {
   vec[0] = (byte)(val >> 24);
-  vec[1] = (val >> 16) & 0xff;
-  vec[2] = (val >>  8) & 0xff;
-  vec[3] =  val        & 0xff;
+  vec[1] = (byte)(val >> 16);
+  vec[2] = (byte)(val >>  8);
+  vec[3] = (byte) val       ;
 }
 
 static inline u32 get_unaligned_be_u32(const byte vec[static 4]) {
@@ -21,13 +21,13 @@ static inline u32 get_unaligned_be_u32(const byte vec[static 4]) {
 
 static inline void put_unaligned_be_u64(byte vec[static 8], u64 val) {
   vec[0] = (byte)(val >> 56);
-  vec[1] = (val >> 48) & 0xff;
-  vec[2] = (val >> 40) & 0xff;
-  vec[3] = (val >> 32) & 0xff;
-  vec[4] = (val >> 24) & 0xff;
-  vec[5] = (val >> 16) & 0xff;
-  vec[6] = (val >>  8) & 0xff;
-  vec[7] =  val        & 0xff;
+  vec[1] = (byte)(val >> 48);
+  vec[2] = (byte)(val >> 40);
+  vec[3] = (byte)(val >> 32);
+  vec[4] = (byte)(val >> 24);
+  vec[5] = (byte)(val >> 16);
+  vec[6] = (byte)(val >>  8);
+  vec[7] = (byte) val       ;
 }
 
 // The K array, SHA256 round constants
@@ -322,5 +322,4 @@ void pbkdf2_sha256(utf8 password, view8 salt, size cost, buf8 *out) {
   }
 }
 
-// TODO clean up memory after use
-// TODO to do so, pass in memory or use static
+// TODO clean up stack memory after use

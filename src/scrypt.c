@@ -1,3 +1,22 @@
+// This is free and unencumbered software released into the public domain.
+// EXCEPT ANYTHING COPIED FROM scrypt WHICH IS FOUND BELOW THE ORIGINAL
+// LICENSE.
+
+#include "sha256.c"
+#include "nonstd.h"
+
+static inline void put_unaligned_le_u32(byte vec[static 4], const u32 val) {
+  vec[0] = (byte) val       ;
+  vec[1] = (byte)(val >>  8);
+  vec[2] = (byte)(val >> 16);
+  vec[3] = (byte)(val >> 24);
+}
+
+static inline u32 get_unaligned_le_u32(const byte vec[static 4]) {
+  return vec[0] | vec[1] << 8 | vec[2] << 16 | vec[3] << 24;
+}
+
+// stuff from lib/crypto etc.
 /*-
  * Copyright 2009 Colin Percival
  * All rights reserved.
@@ -27,21 +46,12 @@
  * online backup system.
  */
 
-#include "sha256.c"
-#include "nonstd.h"
-
-// stuff from lib/crypto etc.
-
-static void (*smix_func)(u8 *, usize, u64, void *, void *) = 0;
-
-static void blkcpy(u32 *dest, const u32 *src, usize len) {
+static void blkcpy(u32 *dest, const u32 *src, size len) {
   copy_b(src, (const byte *)src + len, dest, (const byte *)dest + len);
 }
 
-static void blkxor(u32 *dest, const u32 *src, usize len) {
-  usize i;
-
-  for (i = 0; i < len / 4; i++)
+static void blkxor(u32 *dest, const u32 *src, size len) {
+  for (size i = 0; i < len / 4; i++)
     dest[i] ^= src[i];
 }
 
@@ -109,14 +119,12 @@ static void salsa20_8(u32 B[16]) {
  * bytes in length; the output Bout must also be the same size.  The
  * temporary space X must be 64 bytes.
  */
-static void blockmix_salsa8(const u32 *Bin, u32 *Bout, u32 *X, usize r) {
-  usize i;
-
+static void blockmix_salsa8(const u32 *Bin, u32 *Bout, u32 *X, int r) {
   /* 1: X <-- B_{2r - 1} */
   blkcpy(X, &Bin[(2 * r - 1) * 16], 64);
 
   /* 2: for i = 0 to 2r - 1 do */
-  for (i = 0; i < 2 * r; i += 2) {
+  for (size i = 0; i < 2 * r; i += 2) {
     /* 3: X <-- H(X \xor B_i) */
     blkxor(X, &Bin[i * 16], 64);
     salsa20_8(X);
@@ -139,26 +147,10 @@ static void blockmix_salsa8(const u32 *Bin, u32 *Bout, u32 *X, usize r) {
  * integerify(B, r):
  * Return the result of parsing B_{2r-1} as a little-endian integer.
  */
-static u64 integerify(const u32 *B, usize r) {
+static u64 integerify(const u32 *B, int r) {
   const u32 *X = B + (2 * r - 1) * 16;
 
   return (((u64)(X[1]) << 32) + X[0]);
-}
-
-static inline void le32enc(void *pp, u32 x) {
-  u8 *p = (u8*)pp;
-
-  p[0] = x & 0xff;
-  p[1] = (x >> 8) & 0xff;
-  p[2] = (x >> 16) & 0xff;
-  p[3] = (u8)((x >> 24) & 0xff);
-}
-
-static inline u32 le32dec(const void *pp) {
-  const u8 *p = (u8 const *)pp;
-
-  return ((u32)(p[0]) | ((u32)(p[1]) << 8) |
-    ((u32)(p[2]) << 16) | ((u32)(p[3]) << 24));
 }
 
 /**
@@ -169,21 +161,18 @@ static inline u32 le32dec(const void *pp) {
  * power of 2 greater than 1.  The arrays B, V, and XY must be aligned to a
  * multiple of 64 bytes.
  */
-void crypto_scrypt_smix(u8 *B, usize r, u64 N, void *_v, void *XY) {
+void crypto_scrypt_smix(u8 *B, int r, i64 N, void *_v, void *XY) {
   u32 *X = XY;
-  u32 *Y = (void *)((u8 *)(XY) + 128 * r);
-  u32 *Z = (void *)((u8 *)(XY) + 256 * r);
+  u32 *Y = (void *)((u8 *)XY + 128 * r);
+  u32 *Z = (void *)((u8 *)XY + 256 * r);
   u32 *V = _v;
-  u64 i;
-  u64 j;
-  usize k;
 
   /* 1: X <-- B */
-  for (k = 0; k < 32 * r; k++)
-    X[k] = le32dec(&B[4 * k]);
+  for (size k = 0; k < 32 * r; ++k)
+    X[k] = get_unaligned_le_u32(&B[4 * k]);
 
   /* 2: for i = 0 to N - 1 do */
-  for (i = 0; i < N; i += 2) {
+  for (i64 i = 0; i < N; i += 2) {
     /* 3: V_i <-- X */
     blkcpy(&V[i * (32 * r)], X, 128 * r);
 
@@ -198,93 +187,82 @@ void crypto_scrypt_smix(u8 *B, usize r, u64 N, void *_v, void *XY) {
   }
 
   /* 6: for i = 0 to N - 1 do */
-  for (i = 0; i < N; i += 2) {
+  for (i64 i = 0; i < N; i += 2) {
     /* 7: j <-- Integerify(X) mod N */
-    j = integerify(X, r) & (N - 1);
+    u64 j = integerify(X, r) & (u64)(N - 1);
 
     /* 8: X <-- H(X \xor V_j) */
-    blkxor(X, &V[j * (32 * r)], 128 * r);
+    blkxor(X, &V[j * (u64)(32 * r)], 128 * r);
     blockmix_salsa8(X, Y, Z, r);
 
     /* 7: j <-- Integerify(X) mod N */
-    j = integerify(Y, r) & (N - 1);
+    j = integerify(Y, r) & (u64)(N - 1);
 
     /* 8: X <-- H(X \xor V_j) */
-    blkxor(Y, &V[j * (32 * r)], 128 * r);
+    blkxor(Y, &V[j * (u64)(32 * r)], 128 * r);
     blockmix_salsa8(Y, X, Z, r);
   }
 
   /* 10: B' <-- X */
-  for (k = 0; k < 32 * r; k++)
-    le32enc(&B[4 * k], X[k]);
+  for (size k = 0; k < 32 * r; ++k)
+    put_unaligned_le_u32(&B[4 * k], X[k]);
 }
 
-/**
- * crypto_scrypt_internal(passwd, passwdlen, salt, saltlen, N, r, p, buf,
- *     buflen, smix):
- * Perform the requested scrypt computation, using ${smix} as the smix routine.
- */
-static int crypto_scrypt_internal(arena *a, const u8 *passwd, usize passwdlen,
-                                  const u8 *salt, usize saltlen,
-                                  u64 N, u32 _r, u32 _p,
-                                  u8 *buf, usize buflen,
-                                  void (*smix)(u8 *, usize, u64, void *, void *)) {
+static int crypto_scrypt_internal(arena *a, utf8 passwd, view8 salt,
+                                  i64 N, int r, int p,
+                                  u8 *buf, size buflen) {
   void *B0, *V0, *XY0;
   u8 *B;
   u32 *V;
   u32 *XY;
-  usize r = _r, p = _p;
-  u32 i;
 
   /* Sanity-check parameters. */
-  if ((r == 0) || (p == 0)) {
+  if (N <= 0 || r <= 0 || p <= 0) {
     return -1;
   }
-#if __SIZE_MAX__ > __UINT32_MAX__
-  if (buflen > (((u64)(1) << 32) - 1) * 32) {
+#if __PTRDIFF_MAX__ > __INT32_MAX__
+  if (buflen > (((i64)1 << 32) - 1) * 32) {
     return -1;
   }
 #endif
-  if ((u64)(r) * (u64)(p) >= (1 << 30)) {
+  if ((i64)r * (i64)p >= 1 << 30) {
     return -1;
   }
   if (((N & (N - 1)) != 0) || (N < 2)) {
     return -1;
   }
-  if ((r > __SIZE_MAX__ / 128 / p) ||
-#if __SIZE_MAX__ / 256 <= __UINT32_MAX__
-	    (r > (__SIZE_MAX__ - 64) / 256) ||
+  if ((r > __PTRDIFF_MAX__ / 128 / p) ||
+#if __PTRDIFF_MAX__ / 256 <= __INT32_MAX__
+	    (r > (__PTRDIFF_MAX__ - 64) / 256) ||
 #endif
-    (N > __SIZE_MAX__ / 128 / r)) {
+    (N > __PTRDIFF_MAX__ / 128 / r)) {
     return -1;
   }
 
   /* Allocate memory. */
-  if ((B0 = arena_try_push(a, (size)(128 * r * p + 63)).begin) == 0) // TODO conversion
+  if ((B0 = arena_try_push(a, 128 * r * p + 63).begin) == 0)
     return -1;
   B = (u8*)(((uptr)(B0) + 63) & ~(uptr)(63));
-  if ((XY0 = arena_try_push(a, (size)(256 * r + 64 + 63)).begin) == 0) // TODO conversion
+  if ((XY0 = arena_try_push(a, 256 * r + 64 + 63).begin) == 0)
     return -1;
   XY = (u32*)(((uptr)(XY0) + 63) & ~(uptr)(63));
-  if ((V0 = arena_try_push(a, (size)(128 * r * N + 63)).begin) == 0) // TODO conversion
+  if ((V0 = arena_try_push(a, 128 * r * N + 63).begin) == 0)
     return -1;
   V = (u32*)(((uptr)(V0) + 63) & ~(uptr)(63));
 
   /* 1: (B_0 ... B_{p-1}) <-- PBKDF2(P, S, 1, p * MFLen) */
   buf8 tbuf = (buf8){B, B, B + p * 128 * r};
-  pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){salt, salt + saltlen}, 1, &tbuf);
+  pbkdf2_sha256(passwd, salt, 1, &tbuf);
 
   /* 2: for i = 0 to p - 1 do */
-  for (i = 0; i < p; i++) {
+  for (int i = 0; i < p; ++i) {
     /* 3: B_i <-- MF(B_i, N) */
-    smix(&B[i * 128 * r], r, N, V, XY);
+    crypto_scrypt_smix(&B[i * 128 * r], r, N, V, XY);
   }
 
   /* 5: DK <-- PBKDF2(P, B, 1, dkLen) */
   tbuf = (buf8){buf, buf, buf + buflen};
-  pbkdf2_sha256((utf8){passwd, passwd + passwdlen}, (view8){B, B + p * 128 * r}, 1, &tbuf);
-
-  // TODO consider popping the memory from the arena again
+  pbkdf2_sha256(passwd, (view8){B, B + p * 128 * r}, 1, &tbuf);
 
   return 0;
 }
@@ -292,15 +270,15 @@ static int crypto_scrypt_internal(arena *a, const u8 *passwd, usize passwdlen,
 #define TESTLEN 64
 
 static struct scrypt_test {
-  const char *passwd;
-  const char *salt;
-  u64 N;
-  u32 r;
-  u32 p;
+  const u8 *passwd;
+  const u8 *salt;
+  i64 N;
+  int r;
+  int p;
   u8 result[TESTLEN];
 } testcase = {
-  .passwd = "pleaseletmein",
-  .salt = "SodiumChloride",
+  .passwd = u8"pleaseletmein",
+  .salt = u8"SodiumChloride",
   .N = 16,
   .r = 8,
   .p = 1,
@@ -316,42 +294,36 @@ static struct scrypt_test {
   }
 };
 
-static int testsmix(arena *a, void (*smix)(u8 *, usize, u64, void *, void *)) {
+static bool test_smix(arena *a) {
   u8 hbuf[TESTLEN];
 
   // Perform the computation.
-  if (crypto_scrypt_internal(a,
-                             (const u8*)testcase.passwd, (usize)ascii_length_of(testcase.passwd), // TODO conversion
-                             (const u8*)testcase.salt, (usize)ascii_length_of(testcase.salt), // TODO conversion
-                             testcase.N, testcase.r, testcase.p, hbuf, TESTLEN, smix))
-    return (-1);
+  if (crypto_scrypt_internal(a, to_utf8(testcase.passwd),
+                             utf8_to_view(to_utf8(testcase.salt)),
+                             testcase.N, testcase.r, testcase.p, hbuf,
+                             TESTLEN))
+    return false;
 
   // Does it match?
-  return equal_b_n(testcase.result, hbuf, TESTLEN) ? 0 : 1;
+  return equal_b_n(testcase.result, hbuf, TESTLEN);
 }
 
-/**
- * Compute scrypt(passwd[0 ... passwdlen - 1], salt[0 ... saltlen - 1], N, r,
- * p, buflen) and write the result into buf.  The parameters r, p, and buflen
- * must satisfy 0 < r * p < 2^30 and buflen <= (2^32 - 1) * 32.  The parameter
- * N must be a power of 2 greater than 1.
- *
- * Return 0 on success; or -1 on error.
- */
-int scrypt(arena *a, const u8 *passwd, size passwdlen,
-           const u8 *salt, size saltlen,
-           u64 N, u32 _r, u32 _p,
-           buf8 *password) {
-  // Ensure generic smix works.
-  if (!testsmix(a, crypto_scrypt_smix)) {
-    smix_func = crypto_scrypt_smix;
-    return crypto_scrypt_internal(a, passwd, (usize)passwdlen,
-                                  salt, (usize)saltlen, N, _r, _p,
-                                  password->eod,
-                                  (usize)buf8_capacity(*password),
-                                  smix_func);
+// Computes `scrypt(passwd, salt, N, r, p, len)` with `len` being the available
+// bytes in the buffer `derived`, and writes the result into `derived`.
+//
+// The parameters r, p, and len must satisfy
+//    0 < r * p < 2^30
+// and
+//    len <= (2^32 - 1) * 32.
+// The parameter N must be a power of 2 greater than 1.
+//
+// Returns 0 on success; -1 on error.
+int scrypt(arena *a, utf8 passwd, view8 salt, i64 N, int r, int p,
+           buf8 *derived) {
+  if (!test_smix(a)) {
+    println("error: cannot derive passwords - scrypt smix failed test");
+    return -1;
   }
-
-  print(utf8("error: cannot derive passwords - scrypt smix failed test"));
-  return -1;
+  return crypto_scrypt_internal(a, passwd, salt, N, r, p, derived->eod,
+                                buf8_available(*derived));
 }

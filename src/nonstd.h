@@ -121,8 +121,10 @@ static inline int ascii_cmp(const char *lhs, const char *rhs) {
 
 // UTF-8 strings
 
+// Converts a string literal to a `utf8`-typed string.
 #define utf8(s)    ((utf8){(const u8 *)(u8 ## s),                             \
                            (const u8 *)(&u8 ## s[0] + sizeof(u8 ## s) - 1)})
+// Converts a C-string to a `utf8`-typed string.
 #define to_utf8(s) ((utf8){(const u8 *)(s),                                   \
                            (const u8 *)(&s[0] + ascii_length_of((const char *)(s)))})
 
