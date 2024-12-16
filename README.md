@@ -74,7 +74,8 @@ the `expect` utility available.
 
 ## Implementation notes
 
-The program is built in one step, following the "jumbo build" principle.
+The program is built in one step, following the "jumbo build" principle. There
+are no external dependencies.
 
 A lot of resources allocated throughout the code are not freed. This is on
 purpose. It is much easier to just let the OS release the resources when the
@@ -85,8 +86,7 @@ process exits in such a short-lived program.
 - `padre.c` — the password-derivation logic
 - `main.c` — `entry()` point, program flow
 
-The dependency graph is shown below. The top row consists of libraries while
-other rows contain files.
+The dependency graph is shown below.
 
                                                ┌──────────┐
                                                │ sha256.c │

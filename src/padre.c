@@ -1,9 +1,9 @@
 // This is free and unencumbered software released into the public domain.
 
+#include "scrypt.c"
+
 #include "padre.h"
 #include "nonstd.h"
-
-#include "scrypt.c"
 
 int derive_password(arena *a, utf8 master_password, utf8 domain, utf8 username,
                     utf8 passno, buf8 *password) {

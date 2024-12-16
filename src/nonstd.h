@@ -18,7 +18,9 @@ typedef __UINTPTR_TYPE__  uptr;  // use to store addresses
 typedef __PTRDIFF_TYPE__  size;  // preferred size type
 typedef __SIZE_TYPE__    usize;  // for compatibility with size_t
 
+#define N_U16_MAX   __UINT16_MAX__
 #define N_U32_MAX   __UINT32_MAX__
+#define N_U64_MAX   __UINT64_MAX__
 #define N_SIZE_MAX  __PTRDIFF_MAX__
 
 // There is no benefit in having values live in types smaller than a register,

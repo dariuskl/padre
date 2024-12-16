@@ -231,11 +231,11 @@ static int crypto_scrypt_internal(arena *a, utf8 passwd, view8 salt,
   if (((N & (N - 1)) != 0) || (N < 2)) {
     return -1;
   }
-  if ((r > __PTRDIFF_MAX__ / 128 / p) ||
+  if ((r > __PTRDIFF_MAX__ / 128 / p)
 #if __PTRDIFF_MAX__ / 256 <= __INT32_MAX__
-	    (r > (__PTRDIFF_MAX__ - 64) / 256) ||
+      || (r > (__PTRDIFF_MAX__ - 64) / 256)
 #endif
-    (N > __PTRDIFF_MAX__ / 128 / r)) {
+      || (N > __PTRDIFF_MAX__ / 128 / r)) {
     return -1;
   }
 
