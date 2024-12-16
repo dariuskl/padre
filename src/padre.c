@@ -22,11 +22,15 @@ int derive_password(arena *a, utf8 master_password, utf8 domain, utf8 username,
 
 // converts the bytes that the password derivator spits out
 // into characters from `charset`
-utf8 to_chars(buf8 bytes, utf8 charset) {
-  for (; bytes.begin != bytes.eod; ++bytes.begin) {
-    *bytes.begin = charset.begin[*bytes.begin % utf8_len(charset)];
+utf8 to_chars(arena *a, view8 bytes, utf8 charset) {
+  buf8 dst = arena_try_push(a, view8_len(bytes));
+  if (dst.begin == 0)
+    return (utf8){};
+  for (; bytes.begin != bytes.end; ++bytes.begin) {
+    *dst.eod = charset.begin[*bytes.begin % utf8_len(charset)];
+    ++dst.eod;
   }
-  return (utf8){bytes.begin, bytes.eod};
+  return buf_to_utf8(dst);
 }
 
 #define MAX_CHARSET_LENGTH 94  // as big as |*|

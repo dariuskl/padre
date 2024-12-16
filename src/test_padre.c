@@ -21,21 +21,23 @@
 #define WORD "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
 #define XDIGIT "ABCDEFabcdef0123456789"
 
-void test_to_chars(buf8 bytes, utf8 chars, utf8 expected) {
-  utf8 actual = to_chars(bytes, chars);
-  TEST_ASSERT_NE(actual.begin, bytes.begin);
+void test_to_chars(arena *a, view8 bytes, utf8 chars, utf8 expected) {
+  utf8 actual = to_chars(a, bytes, chars);
+  TEST_ASSERT_NE(actual.begin, bytes.begin); // memory not reused
   TEST_ASSERT_EQ(actual, expected);
 }
 
 void tests_for_to_chars(void) {
   utf8 chars = enumerate_charset(utf8("*"));
-  u8 str[95];
+  arena a = new_arena(1024);
+  buf8 buf = arena_push(&a, 94);
 
-  for (size i = 0; i < size_of(str); ++i) {
-    str[i] = (u8)i;
+  for (; buf.eod != buf.end; ++buf.eod) {
+    *buf.eod = (u8)(buf.eod - buf.begin);
   }
 
-  test_to_chars(buf8(str), chars, chars);
+  test_to_chars(&(arena){}, buf_to_view(buf), chars, (utf8){});
+  test_to_chars(&a, buf_to_view(buf), chars, chars);
 }
 
 void test_enumerate_charset(utf8 spec, utf8 expected) {

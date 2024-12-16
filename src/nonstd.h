@@ -18,6 +18,9 @@ typedef __UINTPTR_TYPE__  uptr;  // use to store addresses
 typedef __PTRDIFF_TYPE__  size;  // preferred size type
 typedef __SIZE_TYPE__    usize;  // for compatibility with size_t
 
+#define N_U32_MAX   __UINT32_MAX__
+#define N_SIZE_MAX  __PTRDIFF_MAX__
+
 // There is no benefit in having values live in types smaller than a register,
 // so the boolean type is not `_Bool` but rather just `unsigned`.
 #define bool    unsigned
@@ -147,7 +150,8 @@ static inline bool utf8_eq(utf8 lhs, utf8 rhs) {
   if (lhs.end - lhs.begin != rhs.end - rhs.begin)
     return false;
 
-  for (; *lhs.begin != *lhs.end; ++lhs.begin, ++rhs.begin)
+  for (; lhs.begin != lhs.end && *lhs.begin != *lhs.end;
+       ++lhs.begin, ++rhs.begin)
     if (*lhs.begin != *rhs.begin)
       return false;
 
@@ -235,6 +239,10 @@ typedef struct {
 } buf8;
 
 #define buf8(a)   ((buf8){.begin = (a), .eod = (a), .end = (a) + sizeof(a)})
+
+static inline utf8 buf_to_utf8(buf8 b) {
+  return (utf8){b.begin, b.eod};
+}
 
 static inline size buf8_used(buf8 b) {
   return b.eod - b.begin;
@@ -337,6 +345,9 @@ size get_file_size(int fd);
 size read_from_file(int fd, byte *begin, const byte *end);
 size write_to_file(int fd, const byte *begin, const byte *end);
 
+buf8 map_file(utf8 filename, int mode);
+int unmap_file(buf8 b);
+
 // Text I/O (OPTIONAL)
 
 size print_to_file(utf8 text, int fd);
@@ -411,6 +422,6 @@ static inline buf8 arena_push(arena *a, size n_bytes) {
 
 buf8 arena_push_aligned();
 
-#define new(a, n, t) ((t *)allocate(a, n, sizeof(t)))
+#define new(a, n, t) ((t *)arena_push(a, n * size_of(t)).eod)
 
 #endif // NONSTD_H

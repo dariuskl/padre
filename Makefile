@@ -47,6 +47,7 @@ build/padre-debug: src/linux_amd64.c \
 		   Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) src/main.c -o $@ $(LDFLAGS)
 
+build/test_padre: CFLAGS += -O2 -Og -g
 build/test_padre: src/linux_amd64.c \
 		  src/linux.c       \
 		  src/nonstd.h      \

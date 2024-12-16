@@ -102,7 +102,7 @@ i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
 
   // allocate a buffer for the generated password
   // one char extra for the line terminator
-  buf8 password = arena_push(&a, length + 1);
+  buf8 derived = arena_push(&a, length + 1);
 
   // ask the user for his master password    | no program exit between here ...
   buf8 master_pwd = arena_push(&a, MAX_MASTER_PASSWORD_LENGTH);
@@ -110,8 +110,8 @@ i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
 
   int ret = derive_password(&a, (utf8){master_pwd.begin, master_pwd.eod},
                             acc.domain, acc.username, acc.iteration,
-                            &password);
-  password.eod = password.begin + length;
+                            &derived);
+  derived.eod = derived.begin + length;
 
   // clear the master password asap
   clear_s(master_pwd.begin, master_pwd.eod);
@@ -122,10 +122,9 @@ i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
     ret = 1;
   } else {
     utf8 chars = enumerate_charset(acc.characters);
-    to_chars(password, chars);
-    *password.eod = u8'\n';
-    ++password.eod;
-    print(((utf8){password.begin, password.eod}));
+    utf8 password = to_chars(&a, buf_to_view(derived), chars);
+    print(password);
+    println("");
   }
 
   // clear the whole arena
