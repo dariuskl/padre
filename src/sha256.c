@@ -61,12 +61,6 @@ static const u32 K[64] = {
 #define Gamma0(x)         (S(x, 7) ^ S(x, 18) ^ R(x, 3))
 #define Gamma1(x)         (S(x, 17) ^ S(x, 19) ^ R(x, 10))
 
-#define sha256_round(a, b, c, d, e, f, g, h, i)        \
-     t0 = h + Sigma1(e) + Ch(e, f, g) + K[i] + W[i];   \
-     t1 = Sigma0(a) + Maj(a, b, c);                    \
-     d += t0;                                          \
-     h  = t0 + t1;
-
 typedef struct {
   size length;  // the number of bits processed so far
   size curlen;
@@ -76,17 +70,7 @@ typedef struct {
 
 // Transform function, compress 512-bits
 void sha256_transform(sha256_context* ctx, const u8* buffer) {
-  u32 S[8];
-  u32 W[64];
-  u32 t0;
-  u32 t1;
-  u32 t;
-
-  // copy state into S
-  for (int i = 0; i < 8; ++i) {
-    S[i] = ctx->state[i];
-  }
-
+  u32 W[64] = {};
   // copy the state into 512-bits into W[0..15]
   for (int i = 0; i < 16; ++i) {
     W[i] = get_unaligned_be_u32(buffer + (4 * i));
@@ -97,10 +81,19 @@ void sha256_transform(sha256_context* ctx, const u8* buffer) {
     W[i] = Gamma1(W[i - 2]) + W[i - 7] + Gamma0(W[i - 15]) + W[i - 16];
   }
 
+  u32 S[8] = {};
+  // copy state into S
+  for (int i = 0; i < 8; ++i) {
+    S[i] = ctx->state[i];
+  }
+
   // compress
   for (int i = 0; i < 64; ++i) {
-    sha256_round(S[0], S[1], S[2], S[3], S[4], S[5], S[6], S[7], i);
-    t = S[7];
+    u32 t0 = S[7] + Sigma1(S[4]) + Ch(S[4], S[5], S[6]) + K[i] + W[i];
+    u32 t1 = Sigma0(S[0]) + Maj(S[0], S[1], S[2]);
+    S[3] += t0; S[7] = t0 + t1;
+
+    u32 t = S[7];
     S[7] = S[6];
     S[6] = S[5];
     S[5] = S[4];
@@ -119,7 +112,7 @@ void sha256_transform(sha256_context* ctx, const u8* buffer) {
 
 // Initialises a SHA256 context. Use this to initialise/reset a context.
 sha256_context sha256_init(void) {
-  sha256_context ctx;
+  sha256_context ctx = {};
   ctx.length = 0;
   ctx.state[0] = 0x6a09e667;
   ctx.state[1] = 0xbb67ae85;
@@ -149,7 +142,7 @@ void sha256_update(sha256_context* ctx, const u8* buffer, size buffer_size) {
       buffer_size -= SHA256_BLOCK_SIZE;
     } else {
       size n = min(buffer_size, (SHA256_BLOCK_SIZE - ctx->curlen));
-      memcpy(ctx->buf + ctx->curlen, buffer, n);
+      copy_b(buffer, buffer + n, ctx->buf + ctx->curlen, ctx->buf + ctx->curlen + n);
       ctx->curlen += n;
       buffer = (u8 *)buffer + n;
       buffer_size -= n;
@@ -227,8 +220,9 @@ typedef struct {
 
 hmac_sha256_context hmac_sha256_init(view8 key) {
   // if the key is larger than a sha256 block, it must be hashed
+  sha256_hash key_hash;
   if (view8_len(key) > SHA256_BLOCK_SIZE) {
-    sha256_hash key_hash = sha256_calculate(key);
+    key_hash = sha256_calculate(key);
     key.begin = key_hash.bytes;
     key.end = key_hash.bytes + size_of(key_hash.bytes);
   }
