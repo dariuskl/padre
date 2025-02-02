@@ -3,11 +3,10 @@
 #include "scrypt.c"
 
 #include "padre.h"
-#include "nonstd.h"
 
 int derive_password(arena *a, utf8 master_password, utf8 domain, utf8 username,
                     utf8 passno, buf8 *password) {
-  size salt_len = utf8_len(domain) + utf8_len(username) + utf8_len(passno);
+  size salt_len = utf8_size(domain) + utf8_size(username) + utf8_size(passno);
   buf8 salt = arena_try_push(a, salt_len);
   if (salt.begin == 0)
     return -1;
@@ -27,7 +26,7 @@ utf8 to_chars(arena *a, view8 bytes, utf8 charset) {
   if (dst.begin == 0)
     return (utf8){};
   for (; bytes.begin != bytes.end; ++bytes.begin) {
-    *dst.eod = charset.begin[*bytes.begin % utf8_len(charset)];
+    *dst.eod = charset.begin[*bytes.begin % utf8_size(charset)];
     ++dst.eod;
   }
   return buf_to_utf8(dst);

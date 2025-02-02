@@ -3,7 +3,6 @@
 // LICENSE.
 
 #include "sha256.c"
-#include "nonstd.h"
 
 static inline void put_unaligned_le_u32(byte vec[static 4], const u32 val) {
   vec[0] = (byte) val       ;

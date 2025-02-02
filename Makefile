@@ -17,10 +17,7 @@ build:
 	mkdir build
 
 build/padre: CFLAGS += -O2 -fanalyzer
-build/padre: src/linux_amd64.c \
-	     src/linux.c       \
-	     src/nonstd.h      \
-	     src/nonstd.c      \
+build/padre: src/nostdlib.c    \
 	     src/main.c        \
 	     src/cli.c         \
 	     src/tui.c         \
@@ -33,10 +30,7 @@ build/padre: src/linux_amd64.c \
 	strip $@
 
 build/padre-debug: CFLAGS += -O2 -Og -g
-build/padre-debug: src/linux_amd64.c \
-		   src/linux.c       \
-		   src/nonstd.h      \
-		   src/nonstd.c      \
+build/padre-debug: src/nostdlib.c    \
 		   src/main.c        \
 		   src/cli.c         \
 		   src/tui.c         \
@@ -48,20 +42,13 @@ build/padre-debug: src/linux_amd64.c \
 	$(CC) $(CPPFLAGS) $(CFLAGS) src/main.c -o $@ $(LDFLAGS)
 
 build/test_padre: CFLAGS += -O2 -Og -g
-build/test_padre: src/linux_amd64.c \
-		  src/linux.c       \
-		  src/nonstd.h      \
-		  src/nonstd.c      \
-		  src/nonstd_test.h \
+build/test_padre: src/nostdlib.c    \
 		  src/test_padre.c  \
 		  src/sha256.c      \
 		  Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) src/test_padre.c -o $@ $(LDFLAGS)
 
-build/test_sha256: src/linux_amd64.c \
-		   src/linux.c       \
-		   src/nonstd.h      \
-		   src/nonstd.c      \
+build/test_sha256: src/nostdlib.c    \
 		   src/test_sha256.c \
 		   src/sha256.c      \
 		   Makefile

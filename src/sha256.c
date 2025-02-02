@@ -6,8 +6,6 @@
 //
 //  This is free and unencumbered software released into the public domain - June 2013 waterjuice.org
 
-#include "nonstd.h"
-
 static inline void put_unaligned_be_u32(byte vec[static 4], u32 val) {
   vec[0] = (byte)(val >> 24);
   vec[1] = (byte)(val >> 16);

@@ -1,11 +1,13 @@
 // This is free and unencumbered software released into the public domain.
 
+#define NOSTDLIB_IMPLEMENTATION
+#include "nostdlib.c"
+
 #include "cli.c"
 #include "padre.c"
 #include "tui.c"
 
 #include "padre.h"
-#include "nonstd.h"
 
 void csv_push_field(account *acc, utf8 field) {
   if (utf8_empty(acc->domain)) {
@@ -52,7 +54,7 @@ account determine_account(buf8 *buf, const cli_opts options) {
   if (utf8_eq(options.acc.domain, utf8("-"))
       && utf8_empty(options.acc.username)) {
     // read account from stdin
-    utf8 csv = utf8_trim(read_stdin(buf));
+    utf8 csv = utf8_trimmed(read_stdin(buf));
 
     if (utf8_empty(csv)) {
       println("error: nothing on stdin even though dash was given");
@@ -134,5 +136,3 @@ i32 entry(i32 /*argc*/, u8 *argv[], u8 *envp[]) {
 
   return ret;
 }
-
-#include "nonstd.c"

@@ -1,7 +1,5 @@
 // This is free and unencumbered software released into the public domain.
 
-#include "nonstd.h"
-
 void tui_set_invisible_mode(int fd) {
   print_to_file(utf8("\033[8m"), fd);
 }

@@ -1,8 +1,9 @@
 // This is free and unencumbered software released into the public domain.
 
-#include "padre.c"
+#define NOSTDLIB_IMPLEMENTATION
+#include "nostdlib.c"
 
-#include "nonstd_test.h"
+#include "padre.c"
 
 #define GRAPH                                                                  \
   "!\"#$%&'()*+,-./"                                                           \
@@ -89,5 +90,3 @@ i32 entry(i32 argc, u8 *argv[], u8 *envp[]) {
   RUN_TEST(tests_for_enumerate_charset);
   return END_TESTS();
 }
-
-#include "nonstd.c"

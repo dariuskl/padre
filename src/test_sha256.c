@@ -3,9 +3,9 @@
 // A program computing sha256 sums the same way sha256sum does.
 // Used to test the sha256 implementation used in padre.
 
+#define NOSTDLIB_IMPLEMENTATION
+#include "nostdlib.c"
 #include "sha256.c"
-
-#include "nonstd.h"
 
 u8 input_buffer[512];
 
@@ -34,5 +34,3 @@ i32 entry(i32 /*argc*/, u8 */*argv*/[], u8 */*envp*/[]) {
 
   return 0;
 }
-
-#include "nonstd.c"

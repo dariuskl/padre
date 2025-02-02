@@ -3,8 +3,6 @@
 #ifndef PADRE_H_INCLUDED
 #define PADRE_H_INCLUDED
 
-#include "nonstd.h"
-
 // The length of the input buffer is fixed to 64 bytes because I assume that
 // anyone that can memorize a longer password does not need this utility.
 #define MAX_MASTER_PASSWORD_LENGTH  64
