@@ -33,7 +33,7 @@ void print_help(void) {
 }
 
 void print_version(void) {
-  println("padre v0.3");
+  println("padre v0.4");
 }
 
 utf8 next_arg(u8 ***pargv) {
